@@ -5,6 +5,37 @@ import { AuthService } from '../services/auth.service';
 import { LayoutService } from '../services/layout.service';
 import { LucideAngularModule, Home, Users, CreditCard, BarChart3, Settings, LogOut, Search, Bell, Plus, Minus } from 'lucide-angular';
 
+// Interfaces for client data
+interface Transaction {
+  id: string;
+  clientName: string;
+  firstName: string;
+  clientInitials: string;
+  birthDate: string;
+  gender: string;
+  address: string;
+  phone: string;
+  email: string;
+  nationality: string;
+  transactionDate: string;
+  transactionTime: string;
+  accountNumber: string;
+  amount: number;
+  type: 'deposit' | 'withdrawal';
+}
+
+interface Compte {
+  id: number;
+  numeroCompte: string;
+  typeCompte: 'Épargne' | 'Courant' | 'Entreprise' | 'Jeune';
+  dateCreation: string;
+  solde: number;
+  clientId: number;
+  proprietaire: string;
+  statut: 'Actif' | 'Bloqué' | 'Supprimé' | 'Inactif';
+  devise: string;
+}
+
 @Component({
   selector: 'app-dashboard',
   imports: [RouterLink, CommonModule, LucideAngularModule],
@@ -21,7 +52,7 @@ import { LucideAngularModule, Home, Users, CreditCard, BarChart3, Settings, LogO
       <div class="star-5"></div>
 
       <!-- Content -->
-      <div class="welcome-text">BONJOUR , Jolie</div>
+      <div class="welcome-text">BONJOUR , {{ currentUser?.nom }}</div>
       <div class="date-text">{{ currentDate }}</div>
       <div class="time-text">{{ currentTime }}</div>
       <div class="hand-icon">👋</div>
@@ -31,7 +62,7 @@ import { LucideAngularModule, Home, Users, CreditCard, BarChart3, Settings, LogO
     <div class="today-title">Aujourd'hui</div>
 
     <!-- Stats Grid -->
-    <div class="stats-grid">
+    <div class="stats-grid" *ngIf="isAdmin">
       <div class="stat-card clients-card">
         <div class="stat-number">5,650</div>
         <div class="stat-label">Clients</div>
@@ -57,13 +88,40 @@ import { LucideAngularModule, Home, Users, CreditCard, BarChart3, Settings, LogO
       </div>
     </div>
 
+    <!-- Client Stats Grid -->
+    <div class="stats-grid" *ngIf="!isAdmin">
+      <div class="stat-card accounts-card">
+        <div class="stat-number">{{ clientAccounts.length }}</div>
+        <div class="stat-label">Mes Comptes</div>
+        <div class="stat-change">Actifs</div>
+      </div>
+
+      <div class="stat-card cash-card">
+        <div class="stat-number">{{ getClientTotalBalance() | number:'1.0-0' }} CFA</div>
+        <div class="stat-label">Solde Total</div>
+        <div class="stat-change">Disponible</div>
+      </div>
+
+      <div class="stat-card transactions-card">
+        <div class="stat-number">{{ clientTransactions.length }}</div>
+        <div class="stat-label">Transactions</div>
+        <div class="stat-change">Ce mois</div>
+      </div>
+
+      <div class="stat-card clients-card">
+        <div class="stat-number">{{ getRecentTransactionsCount() }}</div>
+        <div class="stat-label">Transactions Récentes</div>
+        <div class="stat-change">Aujourd'hui</div>
+      </div>
+    </div>
+
     <!-- Recent Transactions -->
     <div class="transactions-title">
       Transactions récentes
-      <div class="voir-plus" routerLink="/transactions">Voir plus</div>
+      <div class="voir-plus" routerLink="/app/transactions">Voir plus</div>
     </div>
 
-    <div class="transactions-container">
+    <div class="transactions-container" *ngIf="isAdmin">
       <!-- Table Header -->
       <div class="table-header">
         <div class="header-left">
@@ -141,6 +199,38 @@ import { LucideAngularModule, Home, Users, CreditCard, BarChart3, Settings, LogO
             <div class="amount">+ 75,000 CFA</div>
           </div>
           <div class="transaction-type">DÉPÔT</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Client Transactions -->
+    <div class="transactions-container" *ngIf="!isAdmin">
+      <!-- Table Header -->
+      <div class="table-header">
+        <div class="header-left">
+          <div style="width: 35px;"></div>
+          <div class="header-client">Transaction</div>
+        </div>
+        <div class="header-right">
+          <div>Montant</div>
+        </div>
+      </div>
+
+      <!-- Client Transactions -->
+      <div class="transaction-item" *ngFor="let transaction of getRecentClientTransactions()">
+        <div class="transaction-left">
+          <div class="transaction-profile">{{ getClientInitials() }}</div>
+          <div class="client-info">
+            <div class="client-name">{{ transaction.type === 'deposit' ? 'DÉPÔT' : 'RETRAIT' }}</div>
+            <div class="transaction-name">{{ transaction.transactionDate }} {{ transaction.transactionTime }}</div>
+            <div class="transaction-name">ID: {{ transaction.id }}</div>
+          </div>
+        </div>
+        <div class="transaction-right">
+          <div class="transaction-amount" [ngClass]="transaction.type === 'deposit' ? 'positive' : 'negative'">
+            <div class="amount">{{ transaction.type === 'deposit' ? '+' : '-' }} {{ transaction.amount | number:'1.0-0' }} CFA</div>
+          </div>
+          <button class="print-btn" (click)="printInvoice(transaction)">Imprimer Facture</button>
         </div>
       </div>
     </div>
@@ -521,6 +611,23 @@ import { LucideAngularModule, Home, Users, CreditCard, BarChart3, Settings, LogO
     .transaction-amount.negative .amount {
       color: #C40303;
     }
+
+    .print-btn {
+      background: #3B82F6;
+      color: #FFFFFF;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background 0.3s ease;
+    }
+
+    .print-btn:hover {
+      background: #2563EB;
+    }
+
     /* Dashboard Layout */
     .dashboard {
       display: flex;
@@ -536,6 +643,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   currentDate = 'Chargement...';
   currentTime = 'Chargement...';
   private interval: any;
+  clientAccounts: Compte[] = [];
+  clientTransactions: Transaction[] = [];
 
   constructor(private authService: AuthService, private layoutService: LayoutService, private cdr: ChangeDetectorRef) {
     this.updateDateTime();
@@ -550,6 +659,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.updateDateTime();
       this.cdr.detectChanges();
     }, 1000);
+
+    // Load client data if not admin
+    if (!this.isAdmin) {
+      this.loadClientData();
+    }
   }
 
   ngOnDestroy() {
@@ -562,9 +676,141 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const now = new Date();
     const days = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
     const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
-    
+
     this.currentDate = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
     this.currentTime = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  loadClientData() {
+    // Mock client accounts
+    this.clientAccounts = [
+      {
+        id: 1,
+        numeroCompte: 'CMR0012345678',
+        typeCompte: 'Courant',
+        dateCreation: '15/01/2023',
+        solde: 2500000,
+        clientId: 1,
+        proprietaire: 'Client',
+        statut: 'Actif',
+        devise: 'CFA'
+      },
+      {
+        id: 2,
+        numeroCompte: 'CMR0087654321',
+        typeCompte: 'Épargne',
+        dateCreation: '22/03/2023',
+        solde: 1200000,
+        clientId: 1,
+        proprietaire: 'Client',
+        statut: 'Actif',
+        devise: 'CFA'
+      }
+    ];
+
+    // Mock client transactions
+    this.clientTransactions = [
+      {
+        id: 'TXN001',
+        clientName: 'CLIENT',
+        firstName: 'Client',
+        clientInitials: 'CL',
+        birthDate: '01/01/1990',
+        gender: 'M',
+        address: 'Yaoundé, Cameroun',
+        phone: '+237 691 234 567',
+        email: 'client@gmail.com',
+        nationality: 'Camerounaise',
+        transactionDate: '15/03/2023',
+        transactionTime: '14:30',
+        accountNumber: 'CMR0012345678',
+        amount: 25000,
+        type: 'deposit'
+      },
+      {
+        id: 'TXN002',
+        clientName: 'CLIENT',
+        firstName: 'Client',
+        clientInitials: 'CL',
+        birthDate: '01/01/1990',
+        gender: 'M',
+        address: 'Yaoundé, Cameroun',
+        phone: '+237 691 234 567',
+        email: 'client@gmail.com',
+        nationality: 'Camerounaise',
+        transactionDate: '16/03/2023',
+        transactionTime: '09:15',
+        accountNumber: 'CMR0012345678',
+        amount: 12000,
+        type: 'withdrawal'
+      },
+      {
+        id: 'TXN003',
+        clientName: 'CLIENT',
+        firstName: 'Client',
+        clientInitials: 'CL',
+        birthDate: '01/01/1990',
+        gender: 'M',
+        address: 'Yaoundé, Cameroun',
+        phone: '+237 691 234 567',
+        email: 'client@gmail.com',
+        nationality: 'Camerounaise',
+        transactionDate: '17/03/2023',
+        transactionTime: '11:45',
+        accountNumber: 'CMR0087654321',
+        amount: 75000,
+        type: 'deposit'
+      }
+    ];
+  }
+
+  getClientTotalBalance(): number {
+    return this.clientAccounts.reduce((total, account) => total + account.solde, 0);
+  }
+
+  getRecentTransactionsCount(): number {
+    const today = new Date().toLocaleDateString('fr-FR');
+    return this.clientTransactions.filter(t => t.transactionDate === today).length;
+  }
+
+  getRecentClientTransactions(): Transaction[] {
+    return this.clientTransactions.slice(0, 3); // Return last 3 transactions
+  }
+
+  getClientInitials(): string {
+    return this.currentUser?.nom?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 'CL';
+  }
+
+  printInvoice(transaction: Transaction) {
+    const invoiceContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ccc;">
+        <h1 style="text-align: center; color: #333;">Facture de Transaction</h1>
+        <div style="margin: 20px 0;">
+          <h3>Informations Client</h3>
+          <p><strong>Nom:</strong> ${transaction.clientName} ${transaction.firstName}</p>
+          <p><strong>Email:</strong> ${transaction.email}</p>
+          <p><strong>Téléphone:</strong> ${transaction.phone}</p>
+        </div>
+        <div style="margin: 20px 0;">
+          <h3>Détails de la Transaction</h3>
+          <p><strong>ID Transaction:</strong> ${transaction.id}</p>
+          <p><strong>Date:</strong> ${transaction.transactionDate} ${transaction.transactionTime}</p>
+          <p><strong>Numéro de compte:</strong> ${transaction.accountNumber}</p>
+          <p><strong>Type:</strong> ${transaction.type === 'deposit' ? 'Dépôt' : 'Retrait'}</p>
+          <p><strong>Montant:</strong> ${transaction.amount.toLocaleString()} CFA</p>
+        </div>
+        <div style="text-align: center; margin-top: 40px; color: #666;">
+          <p>Merci d'avoir utilisé nos services bancaires.</p>
+        </div>
+      </div>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(invoiceContent);
+      printWindow.document.close();
+      printWindow.print();
+    }
   }
 
   logout() {

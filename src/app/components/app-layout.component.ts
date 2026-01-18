@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet, RouterLink } from '@angular/router';
+import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-app-layout',
@@ -15,11 +16,12 @@ import { RouterOutlet, RouterLink } from '@angular/router';
           </div>
           <nav class="main-nav">
             <a routerLink="/app/dashboard" class="nav-item">Dashboard</a>
-            <a routerLink="/app/clients" class="nav-item">Clients</a>
-            <a routerLink="/app/comptes" class="nav-item">Comptes</a>
-            <a routerLink="/app/transactions" class="nav-item">Transactions</a>
+            <a *ngIf="authService.isAdmin()" routerLink="/app/clients" class="nav-item">Clients</a>
+            <a *ngIf="authService.isAdmin() || authService.isClient()" routerLink="/app/comptes" class="nav-item">Mes Comptes</a>
+            <a *ngIf="authService.isAdmin() || authService.isClient()" routerLink="/app/transactions" class="nav-item">Mes Transactions</a>
+            <a *ngIf="authService.isClient()" routerLink="/app/transactions" class="nav-item">Historique</a>
             <a routerLink="/app/account" class="nav-item">Mon Compte</a>
-            <a routerLink="/app/settings" class="nav-item">Paramètres</a>
+            <a *ngIf="authService.isAdmin()" routerLink="/app/settings" class="nav-item">Paramètres</a>
           </nav>
           <div class="user-actions">
             <button class="logout-btn" (click)="logout()">Déconnexion</button>
@@ -115,7 +117,17 @@ import { RouterOutlet, RouterLink } from '@angular/router';
   `]
 })
 export class AppLayoutComponent {
+  constructor(public authService: AuthService) {}
+
   logout() {
-    console.log('Logout clicked');
+    this.authService.logout();
+  }
+
+  makeDeposit() {
+    alert('Fonction de versement à implémenter');
+  }
+
+  makeWithdrawal() {
+    alert('Fonction de retrait à implémenter');
   }
 }

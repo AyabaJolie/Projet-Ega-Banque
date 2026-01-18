@@ -627,16 +627,25 @@ export class ComptesComponent implements OnInit {
   filteredComptes: Compte[] = [];
   currentPage = 1;
   itemsPerPage = 10;
-  
+
   // Filtres
   searchTerm = '';
   typeFilter = '';
   statutFilter = '';
 
+  // User properties
+  currentUser: any;
+  isClient = false;
+
   constructor(private authService: AuthService, private apiService: ApiService) {}
 
   ngOnInit() {
     this.loadMockData();
+    this.currentUser = this.authService.getCurrentUser();
+    this.isClient = this.authService.isClient();
+    if (this.isClient) {
+      this.filterClientAccounts();
+    }
   }
 
   loadMockData() {
@@ -753,8 +762,13 @@ export class ComptesComponent implements OnInit {
         devise: 'CFA'
       }
     ];
-    
+
     this.filteredComptes = [...this.allComptes];
+  }
+
+  filterClientAccounts() {
+    // For client, show only their accounts (assuming clientId = 1 for client@gmail.com)
+    this.filteredComptes = this.allComptes.filter(compte => compte.clientId === 1);
   }
 
   applyFilters() {

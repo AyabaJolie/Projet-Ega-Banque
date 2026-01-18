@@ -80,4 +80,37 @@ export class AuthService {
     const user = this.getCurrentUser();
     return user?.role === 'client';
   }
+
+  changePassword(oldPassword: string, newPassword: string): boolean {
+    const user = this.getCurrentUser();
+    if (user && user.password === oldPassword) {
+      user.password = newPassword;
+      // Update in users array
+      const index = this.users.findIndex(u => u.email === user.email);
+      if (index !== -1) {
+        this.users[index].password = newPassword;
+      }
+      // Update localStorage
+      localStorage.setItem('currentUser', JSON.stringify(user));
+      return true;
+    }
+    return false;
+  }
+
+  getAdminUser(): User | null {
+    return this.users.find(u => u.role === 'admin') || null;
+  }
+
+  changeAdminPassword(newPassword: string): boolean {
+    const admin = this.getAdminUser();
+    if (admin) {
+      admin.password = newPassword;
+      // Update localStorage if admin is current user
+      if (this.getCurrentUser()?.email === admin.email) {
+        localStorage.setItem('currentUser', JSON.stringify(admin));
+      }
+      return true;
+    }
+    return false;
+  }
 }

@@ -1,17 +1,20 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { AuthService } from '../services/auth.service';
+import { AuthService, User as AuthUser } from '../services/auth.service';
 import { LucideAngularModule, Home, Users, CreditCard, BarChart3, Settings, LogOut, Search, Bell, User, X } from 'lucide-angular';
 
 interface Transaction {
   id: string;
   clientName: string;
+  firstName: string;
   clientInitials: string;
   birthDate: string;
   gender: string;
+  address: string;
   phone: string;
+  email: string;
   nationality: string;
   transactionDate: string;
   transactionTime: string;
@@ -31,16 +34,42 @@ interface Transaction {
           <div class="page-title">Historique des Transactions</div>
         </div>
 
+        <!-- Search and Filter Controls -->
+        <div class="controls-container">
+          <div class="search-container">
+            <lucide-icon name="search" class="search-icon"></lucide-icon>
+            <input
+              type="text"
+              [(ngModel)]="searchQuery"
+              (input)="filterTransactions()"
+              placeholder="Rechercher par nom, prénom, ID, compte, téléphone, email, adresse..."
+              class="search-input"
+            />
+          </div>
+          <div class="filter-container">
+            <select [(ngModel)]="typeFilter" (change)="filterTransactions()" class="filter-select">
+              <option value="">Tous les types</option>
+              <option value="deposit">Dépôts</option>
+              <option value="withdrawal">Retraits</option>
+            </select>
+          </div>
+          <div class="date-filter-container">
+            <input
+              type="date"
+              [(ngModel)]="dateFilter"
+              (change)="filterTransactions()"
+              class="date-filter-input"
+            />
+          </div>
+        </div>
+
         <!-- Transactions Container -->
         <div class="transactions-container">
-          <!-- Table Header -->
+        <!-- Table Header -->
           <div class="table-header">
-            <div class="header-id">ID</div>
-            <div class="header-date-time">Date & Heure</div>
-            <div class="header-account">Numéro de Compte</div>
-            <div class="header-client">Client</div>
+            <div class="header-date">Date Transaction</div>
             <div class="header-amount">Montant</div>
-            <div class="header-type">Type</div>
+            <div class="header-account">Compte Destination</div>
           </div>
 
           <!-- Transaction Rows -->
@@ -49,19 +78,14 @@ interface Transaction {
             class="transaction-row"
             (click)="openModal(transaction)"
           >
-            <div class="transaction-id">{{ transaction.id }}</div>
-            <div class="transaction-date-time">{{ transaction.transactionDate }} {{ transaction.transactionTime }}</div>
-            <div class="transaction-account">{{ transaction.accountNumber }}</div>
-            <div class="transaction-client">{{ transaction.clientName }}</div>
+            <div class="transaction-date">{{ transaction.transactionDate }} {{ transaction.transactionTime }}</div>
             <div
               class="transaction-amount"
               [ngClass]="transaction.type === 'deposit' ? 'positive' : 'negative'"
             >
               {{ transaction.type === 'deposit' ? '+' : '-' }} {{ transaction.amount | number:'1.0-0' }} CFA
             </div>
-            <div class="transaction-type">
-              {{ transaction.type === 'deposit' ? 'DÉPÔT' : 'RETRAIT' }}
-            </div>
+            <div class="transaction-account">{{ transaction.accountNumber }}</div>
           </div>
         </div>
       </div>
@@ -84,6 +108,10 @@ interface Transaction {
                   <span>{{ selectedTransaction.clientName }}</span>
                 </div>
                 <div class="detail-item">
+                  <span class="detail-label">Prénom:</span>
+                  <span>{{ selectedTransaction.firstName }}</span>
+                </div>
+                <div class="detail-item">
                   <span class="detail-label">Date de naissance:</span>
                   <span>{{ selectedTransaction.birthDate }}</span>
                 </div>
@@ -92,8 +120,16 @@ interface Transaction {
                   <span>{{ selectedTransaction.gender === 'F' ? 'Féminin' : 'Masculin' }}</span>
                 </div>
                 <div class="detail-item">
+                  <span class="detail-label">Adresse:</span>
+                  <span>{{ selectedTransaction.address }}</span>
+                </div>
+                <div class="detail-item">
                   <span class="detail-label">Téléphone:</span>
                   <span>{{ selectedTransaction.phone }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Courriel:</span>
+                  <span>{{ selectedTransaction.email }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="detail-label">Nationalité:</span>
@@ -132,6 +168,10 @@ interface Transaction {
                   <span>{{ selectedTransaction.type === 'deposit' ? 'Dépôt' : 'Retrait' }}</span>
                 </div>
               </div>
+            </div>
+
+            <div class="modal-actions">
+              <button class="history-btn" (click)="viewClientHistory(selectedTransaction); closeModal()">Voir Historique</button>
             </div>
           </div>
         </div>
@@ -353,38 +393,151 @@ interface Transaction {
       letter-spacing: 0.5px;
     }
 
-    .transaction-amount.positive .amount {
+    .transaction-amount.positive {
       color: #16AC10;
     }
 
-    .transaction-amount.negative .amount {
+    .transaction-amount.negative {
       color: #C40303;
+    }
+
+    /* Search and Filter Controls */
+    .controls-container {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 30px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: space-between;
+    }
+
+    .search-container {
+      position: relative;
+      flex: none;
+      min-width: 300px;
+      max-width: 400px;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 20px;
+      height: 20px;
+      color: #6B7280;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 12px 12px 12px 40px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-family: 'Inter';
+      font-size: 14px;
+      color: #374151;
+      background: #FFFFFF;
+      transition: all 0.3s ease;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: #3B82F6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .filter-container {
+      min-width: 200px;
+      flex-shrink: 0;
+    }
+
+    .filter-select {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-family: 'Inter';
+      font-size: 14px;
+      color: #374151;
+      background: #FFFFFF;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .filter-select:focus {
+      outline: none;
+      border-color: #3B82F6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .date-filter-container {
+      min-width: 200px;
+      flex-shrink: 0;
+    }
+
+    .date-filter-input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-family: 'Inter';
+      font-size: 14px;
+      color: #374151;
+      background: #FFFFFF;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .date-filter-input:focus {
+      outline: none;
+      border-color: #3B82F6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    @media (max-width: 768px) {
+      .controls-container {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .search-container {
+        min-width: unset;
+        max-width: unset;
+      }
+
+      .filter-container {
+        min-width: unset;
+      }
     }
 
     /* Table Styles */
     .table-header {
       display: grid;
-      grid-template-columns: 120px 150px 150px 1fr 120px 100px;
-      gap: 16px;
+      grid-template-columns: 1fr 100px 140px;
+      gap: 12px;
       background: #f8f9fa;
       padding: 16px 25px;
       border-bottom: 2px solid #e2e8f0;
       font-family: 'Inter';
       font-weight: 600;
-      font-size: 12px;
+      font-size: 11px;
       color: #475569;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
 
-    .header-id, .header-date-time, .header-account, .header-client, .header-amount, .header-type {
+    .header-id, .header-nom, .header-prenom, .header-naissance, .header-sexe, .header-adresse, .header-telephone, .header-courriel, .header-nationalite, .header-date-time, .header-account, .header-amount, .header-type {
       text-align: left;
+      white-space: nowrap;
     }
 
     .transaction-row {
       display: grid;
-      grid-template-columns: 120px 150px 150px 1fr 120px 100px;
-      gap: 16px;
+      grid-template-columns: 1fr 100px 140px;
+      gap: 12px;
       padding: 16px 25px;
       border-bottom: 1px solid #f1f5f9;
       background: #FFFFFF;
@@ -395,11 +548,34 @@ interface Transaction {
 
     .transaction-row:hover {
       background: rgba(59, 130, 246, 0.05);
-      box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.04);
+      box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.08);
+      transform: translateY(-2px);
     }
 
     .transaction-row:last-child {
       border-bottom: none;
+    }
+
+    .transaction-client-info {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .client-name {
+      font-family: 'Poppins';
+      font-weight: 600;
+      font-size: 16px;
+      color: #000000;
+    }
+
+    .client-details {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-family: 'Inter';
+      font-size: 12px;
+      color: #6B7280;
     }
 
     .transaction-id {
@@ -449,30 +625,30 @@ interface Transaction {
       position: fixed;
       top: 0;
       left: 0;
-      width: 100vw;
-      height: 100vh;
+      width: 100%;
+      height: 100%;
       background: rgba(0, 0, 0, 0.5);
       display: flex;
-      align-items: center;
       justify-content: center;
+      align-items: center;
       z-index: 1000;
     }
 
     .modal-content {
       background: #FFFFFF;
       border-radius: 15px;
-      width: 90%;
+      box-shadow: 0px 20px 60px rgba(0, 0, 0, 0.15);
       max-width: 600px;
+      width: 90%;
       max-height: 80vh;
       overflow-y: auto;
-      box-shadow: 0px 20px 60px rgba(0, 0, 0, 0.15);
     }
 
     .modal-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 24px 30px;
+      padding: 25px 30px;
       border-bottom: 1px solid #e2e8f0;
     }
 
@@ -488,18 +664,21 @@ interface Transaction {
       background: none;
       border: none;
       cursor: pointer;
-      padding: 8px;
-      border-radius: 8px;
-      transition: all 0.3s ease;
+      padding: 5px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.3s ease;
     }
 
     .close-btn:hover {
-      background: #F3F4F6;
+      background: rgba(0, 0, 0, 0.1);
     }
 
     .close-icon {
-      width: 20px;
-      height: 20px;
+      width: 24px;
+      height: 24px;
       color: #6B7280;
     }
 
@@ -516,37 +695,32 @@ interface Transaction {
       font-weight: 600;
       font-size: 18px;
       color: #1F2937;
-      margin: 0 0 16px 0;
-      padding-bottom: 8px;
-      border-bottom: 2px solid #3B82F6;
+      margin-bottom: 20px;
     }
 
     .detail-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 16px 24px;
+      gap: 15px;
     }
 
     .detail-item {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 5px;
     }
 
     .detail-label {
       font-family: 'Inter';
       font-weight: 600;
-      font-size: 12px;
-      color: #6B7280;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      font-size: 14px;
+      color: #374151;
     }
 
     .detail-item span:last-child {
       font-family: 'Inter';
-      font-weight: 400;
       font-size: 14px;
-      color: #374151;
+      color: #6B7280;
     }
 
     .amount-detail {
@@ -562,30 +736,68 @@ interface Transaction {
     .amount-detail.negative {
       color: #C40303;
     }
+
+    .modal-actions {
+      display: flex;
+      justify-content: center;
+      padding-top: 20px;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .history-btn {
+      background: #3B82F6;
+      color: #FFFFFF;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-family: 'Inter';
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    .history-btn:hover {
+      background: #2563EB;
+    }
+
+
   `]
 })
 export class TransactionsComponent implements OnInit {
   searchQuery: string = '';
+  typeFilter: string = '';
+  dateFilter: string = '';
   transactions: Transaction[] = [];
   filteredTransactions: Transaction[] = [];
-  selectedTransaction: Transaction | null = null;
   showModal: boolean = false;
+  selectedTransaction: Transaction | null = null;
+  currentUser: AuthUser | null = null;
+  isClient: boolean = false;
 
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
     this.loadTransactions();
+    this.currentUser = this.authService.getCurrentUser();
+    this.isClient = this.authService.isClient();
+    if (this.isClient) {
+      this.filterClientTransactions();
+    }
   }
 
   loadTransactions() {
     this.transactions = [
       {
         id: 'TXN001',
-        clientName: 'AYABA Amina',
+        clientName: 'AYABA',
+        firstName: 'Amina',
         clientInitials: 'AA',
         birthDate: '15/03/1985',
         gender: 'F',
+        address: 'Yaoundé, Cameroun',
         phone: '+237 691 234 567',
+        email: 'amina.ayaba@example.com',
         nationality: 'Camerounaise',
         transactionDate: '15/03/2023',
         transactionTime: '14:30',
@@ -595,11 +807,14 @@ export class TransactionsComponent implements OnInit {
       },
       {
         id: 'TXN002',
-        clientName: 'MBALLA Jolie',
+        clientName: 'MBALLA',
+        firstName: 'Jolie',
         clientInitials: 'MJ',
         birthDate: '22/08/1990',
         gender: 'F',
+        address: 'Douala, Cameroun',
         phone: '+237 677 890 123',
+        email: 'jolie.mballa@example.com',
         nationality: 'Camerounaise',
         transactionDate: '16/03/2023',
         transactionTime: '09:15',
@@ -609,11 +824,14 @@ export class TransactionsComponent implements OnInit {
       },
       {
         id: 'TXN003',
-        clientName: 'KAMGA Paul',
+        clientName: 'KAMGA',
+        firstName: 'Paul',
         clientInitials: 'KP',
         birthDate: '10/12/1978',
         gender: 'M',
+        address: 'Bafoussam, Cameroun',
         phone: '+237 654 321 098',
+        email: 'paul.kamga@example.com',
         nationality: 'Camerounaise',
         transactionDate: '17/03/2023',
         transactionTime: '11:45',
@@ -623,11 +841,14 @@ export class TransactionsComponent implements OnInit {
       },
       {
         id: 'TXN004',
-        clientName: 'NGOUAN Marie',
+        clientName: 'NGOUAN',
+        firstName: 'Marie',
         clientInitials: 'NM',
         birthDate: '05/06/1988',
         gender: 'F',
+        address: 'Garoua, Cameroun',
         phone: '+237 699 456 789',
+        email: 'marie.ngouan@example.com',
         nationality: 'Camerounaise',
         transactionDate: '18/03/2023',
         transactionTime: '16:20',
@@ -637,11 +858,14 @@ export class TransactionsComponent implements OnInit {
       },
       {
         id: 'TXN005',
-        clientName: 'TCHOUA Jean',
+        clientName: 'TCHOUA',
+        firstName: 'Jean',
         clientInitials: 'TJ',
         birthDate: '18/11/1982',
         gender: 'M',
+        address: 'Bamenda, Cameroun',
         phone: '+237 655 789 012',
+        email: 'jean.tchoua@example.com',
         nationality: 'Camerounaise',
         transactionDate: '19/03/2023',
         transactionTime: '13:10',
@@ -651,11 +875,14 @@ export class TransactionsComponent implements OnInit {
       },
       {
         id: 'TXN006',
-        clientName: 'FOUDA Sophie',
+        clientName: 'FOUDA',
+        firstName: 'Sophie',
         clientInitials: 'FS',
         birthDate: '30/04/1995',
         gender: 'F',
+        address: 'Limbe, Cameroun',
         phone: '+237 676 543 210',
+        email: 'sophie.fouda@example.com',
         nationality: 'Camerounaise',
         transactionDate: '20/03/2023',
         transactionTime: '10:25',
@@ -665,11 +892,14 @@ export class TransactionsComponent implements OnInit {
       },
       {
         id: 'TXN007',
-        clientName: 'EKOUA David',
+        clientName: 'EKOUA',
+        firstName: 'David',
         clientInitials: 'ED',
         birthDate: '12/09/1987',
         gender: 'M',
+        address: 'Ngaoundéré, Cameroun',
         phone: '+237 690 123 456',
+        email: 'david.ekoua@example.com',
         nationality: 'Camerounaise',
         transactionDate: '21/03/2023',
         transactionTime: '15:30',
@@ -678,23 +908,38 @@ export class TransactionsComponent implements OnInit {
         type: 'deposit'
       }
     ];
-    
+
     this.filteredTransactions = [...this.transactions];
   }
 
   filterTransactions() {
-    if (!this.searchQuery.trim()) {
-      this.filteredTransactions = [...this.transactions];
-      return;
+    let filtered = [...this.transactions];
+
+    // Apply search filter
+    if (this.searchQuery.trim()) {
+      const query = this.searchQuery.toLowerCase();
+      filtered = filtered.filter(transaction =>
+        transaction.clientName.toLowerCase().includes(query) ||
+        transaction.firstName.toLowerCase().includes(query) ||
+        transaction.id.toLowerCase().includes(query) ||
+        transaction.accountNumber.toLowerCase().includes(query) ||
+        transaction.phone.includes(query) ||
+        transaction.email.toLowerCase().includes(query) ||
+        transaction.address.toLowerCase().includes(query)
+      );
     }
 
-    const query = this.searchQuery.toLowerCase();
-    this.filteredTransactions = this.transactions.filter(transaction =>
-      transaction.clientName.toLowerCase().includes(query) ||
-      transaction.id.toLowerCase().includes(query) ||
-      transaction.accountNumber.toLowerCase().includes(query) ||
-      transaction.phone.includes(query)
-    );
+    // Apply type filter
+    if (this.typeFilter) {
+      filtered = filtered.filter(transaction => transaction.type === this.typeFilter);
+    }
+
+    // Apply date filter
+    if (this.dateFilter) {
+      filtered = filtered.filter(transaction => transaction.transactionDate === this.dateFilter);
+    }
+
+    this.filteredTransactions = filtered;
   }
 
   openModal(transaction: Transaction) {
@@ -705,6 +950,20 @@ export class TransactionsComponent implements OnInit {
   closeModal() {
     this.showModal = false;
     this.selectedTransaction = null;
+  }
+
+  viewClientHistory(transaction: Transaction) {
+    // Filter transactions by the client's account number
+    this.filteredTransactions = this.transactions.filter(t => t.accountNumber === transaction.accountNumber);
+    // Reset filters to show all transactions for this client
+    this.searchQuery = '';
+    this.typeFilter = '';
+    this.dateFilter = '';
+  }
+
+  filterClientTransactions() {
+    // For client, show only their transactions (assuming email is client@gmail.com)
+    this.filteredTransactions = this.transactions.filter(t => t.email === 'client@gmail.com');
   }
 
   logout() {

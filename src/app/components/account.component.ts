@@ -1,10 +1,12 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { AuthService, User } from '../services/auth.service';
 
 @Component({
   selector: 'app-account',
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, FormsModule],
   template: `
     <div class="account-container">
       <div class="account-header">
@@ -13,43 +15,37 @@ import { RouterLink } from '@angular/router';
       </div>
 
       <div class="account-content">
-        <div class="account-section">
-          <h2>Informations Personnelles</h2>
+        <div *ngIf="adminUser" class="account-section">
+          <h2>Informations de Connexion de l'Administrateur</h2>
           <div class="account-item">
-            <label>Nom complet</label>
-            <input type="text" placeholder="Votre nom complet">
+            <label>Nom</label>
+            <span>{{ adminUser.nom }}</span>
           </div>
           <div class="account-item">
             <label>Email</label>
-            <input type="email" placeholder="votre.email@example.com">
+            <span>{{ adminUser.email }}</span>
           </div>
           <div class="account-item">
-            <label>Téléphone</label>
-            <input type="tel" placeholder="+228 XX XX XX XX">
+            <label>Mot de passe</label>
+            <span>********</span>
           </div>
         </div>
 
-        <div class="account-section">
-          <h2>Préférences</h2>
+        <div *ngIf="adminUser" class="account-section">
+          <h2>Changer le Mot de Passe de l'Administrateur</h2>
+          <div *ngIf="message" class="message">{{ message }}</div>
           <div class="account-item">
-            <label>Langue</label>
-            <select>
-              <option value="fr">Français</option>
-              <option value="en">English</option>
-            </select>
+            <label>Nouveau mot de passe</label>
+            <input type="password" [(ngModel)]="passwordForm.newPassword" name="newPassword">
           </div>
           <div class="account-item">
-            <label>Devise</label>
-            <select>
-              <option value="XOF">Franc CFA (XOF)</option>
-              <option value="EUR">Euro (EUR)</option>
-              <option value="USD">Dollar US (USD)</option>
-            </select>
+            <label>Confirmer le nouveau mot de passe</label>
+            <input type="password" [(ngModel)]="passwordForm.confirmPassword" name="confirmPassword">
           </div>
         </div>
 
         <div class="account-actions">
-          <button class="btn-save">Enregistrer les modifications</button>
+          <button *ngIf="adminUser" class="btn-save" (click)="changeAdminPassword()">Changer le mot de passe</button>
           <button class="btn-cancel" routerLink="/dashboard">Retour au tableau de bord</button>
         </div>
       </div>
@@ -161,6 +157,25 @@ import { RouterLink } from '@angular/router';
       background: #c82333;
     }
 
+    .message {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    .error-message {
+      background-color: #fee;
+      color: #c33;
+      border: 1px solid #fcc;
+    }
+
+    .success-message {
+      background-color: #efe;
+      color: #363;
+      border: 1px solid #cfc;
+    }
+
     @media (max-width: 768px) {
       .account-container {
         padding: 20px 10px;
@@ -178,6 +193,34 @@ import { RouterLink } from '@angular/router';
     }
   `]
 })
-export class AccountComponent {
+export class AccountComponent implements OnInit {
+  currentUser: User | null = null;
+  adminUser: User | null = null;
+  passwordForm = {
+    newPassword: '',
+    confirmPassword: ''
+  };
+  message: string = '';
 
+  constructor(private authService: AuthService) {}
+
+  ngOnInit(): void {
+    this.currentUser = this.authService.getCurrentUser();
+    if (this.authService.isAdmin()) {
+      this.adminUser = this.authService.getAdminUser();
+    }
+  }
+
+  changeAdminPassword(): void {
+    if (this.passwordForm.newPassword !== this.passwordForm.confirmPassword) {
+      this.message = 'Les nouveaux mots de passe ne correspondent pas.';
+      return;
+    }
+    if (this.authService.changeAdminPassword(this.passwordForm.newPassword)) {
+      this.message = 'Mot de passe de l\'administrateur changé avec succès.';
+      this.passwordForm = { newPassword: '', confirmPassword: '' };
+    } else {
+      this.message = 'Erreur lors du changement du mot de passe.';
+    }
+  }
 }

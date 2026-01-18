@@ -1,12 +1,11 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-login',
-  imports: [CommonModule, RouterLink, FormsModule],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="dashboard">
       <div class="side-image">
@@ -26,15 +25,17 @@ import { AuthService } from '../services/auth.service';
                 <div class="input-field focused">
                   <input type="text" [(ngModel)]="formData.nom" name="nom" placeholder="Veuillez entrer votre nom">
                 </div>
+                <div *ngIf="nomError" class="error-message">{{ nomError }}</div>
               </div>
-              
+
               <div class="text-field">
                 <label>Email</label>
                 <div class="input-field">
                   <input type="email" [(ngModel)]="formData.email" name="email" placeholder="Entrer votre adresse mail">
                 </div>
+                <div *ngIf="emailError" class="error-message">{{ emailError }}</div>
               </div>
-              
+
               <div class="text-field">
                 <label>Mot de passe</label>
                 <div class="input-field">
@@ -48,12 +49,17 @@ import { AuthService } from '../services/auth.service';
 </div>
 
                 </div>
+                <div *ngIf="passwordError" class="error-message">{{ passwordError }}</div>
               </div>
             </div>
             
             <button class="primary-button" (click)="onLogin()">
               Se connecter
             </button>
+
+            <div *ngIf="errorMessage" class="error-message">
+              {{ errorMessage }}
+            </div>
           </div>
         </div>
       </div>
@@ -185,7 +191,7 @@ import { AuthService } from '../services/auth.service';
       .dashboard {
         flex-direction: column;
       }
-      
+
       .side-image {
         height: 200px;
       }
@@ -216,6 +222,14 @@ import { AuthService } from '../services/auth.service';
   z-index: 10;
 }
 
+.error-message {
+  color: #dc3545;
+  font-size: 14px;
+  margin-top: 5px;
+  font-family: 'Poppins';
+  font-weight: 500;
+}
+
   
 
   `]
@@ -228,6 +242,10 @@ export class LoginComponent {
   };
 
   showPassword = false;
+  errorMessage = '';
+  nomError = '';
+  emailError = '';
+  passwordError = '';
 
   togglePassword() {
     this.showPassword = !this.showPassword;
@@ -236,10 +254,46 @@ export class LoginComponent {
   constructor(private authService: AuthService) {}
 
   onLogin() {
-    const success = this.authService.login(this.formData.email, this.formData.password);
-    
-    if (!success) {
-      alert('Email ou mot de passe incorrect');
+    // Clear all errors
+    this.nomError = '';
+    this.emailError = '';
+    this.passwordError = '';
+    this.errorMessage = '';
+
+    // Validate fields
+    let hasError = false;
+
+    if (!this.formData.nom.trim()) {
+      this.nomError = 'Le nom est requis';
+      hasError = true;
     }
+
+    if (!this.formData.email.trim()) {
+      this.emailError = 'L\'email est requis';
+      hasError = true;
+    } else if (!this.isValidEmail(this.formData.email)) {
+      this.emailError = 'Veuillez entrer un email valide';
+      hasError = true;
+    }
+
+    if (!this.formData.password.trim()) {
+      this.passwordError = 'Le mot de passe est requis';
+      hasError = true;
+    }
+
+    if (hasError) {
+      return;
+    }
+
+    const success = this.authService.login(this.formData.email, this.formData.password);
+
+    if (!success) {
+      this.errorMessage = 'Email ou mot de passe incorrect';
+    }
+  }
+
+  isValidEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
   }
 }

@@ -1,8 +1,16 @@
-# TODO: Améliorer la navbar dans app-layout.component.ts
+# TODO: Modify Account Component for Admin Management
 
-- [x] Augmenter la taille du logo de 60px à 80px
-- [x] Changer la police des éléments de navigation et du bouton à 'Roboto, sans-serif'
-- [x] Améliorer la navbar : ajouter une ombre subtile et un dégradé léger au fond
-- [x] Améliorer le style du bouton de déconnexion : changer couleur, padding, border-radius, ajouter ombre au hover
-- [x] Changer la couleur du bouton de déconnexion (de bleu à rouge)
-- [x] Ajouter des animations et transitions : hover scale sur nav items et logo, transition sur header
+- [x] Add getAdminUser() and changeAdminPassword(newPassword) methods to auth.service.ts
+- [x] Update account.component.ts to fetch and display admin info if user is admin
+- [x] Modify account.component.ts template to show admin connection info and password change form
+- [x] Update password change logic in account.component.ts to change admin's password
+- [x] Test the changes
+
+# TODO: Implement Client Functionality
+
+- [x] Modify dashboard.component.ts to show client-specific data (accounts, balance, recent transactions) when user is client
+- [x] Modify comptes.component.ts to show only client's accounts when user is client
+- [x] Modify transactions.component.ts to show only client's transactions when user is client
+- [x] Add invoice printing functionality to transactions component
+- [x] Display errors in red under the concerned part instead of alerts for both admin and client
+- [x] Test client login and dashboard functionality
