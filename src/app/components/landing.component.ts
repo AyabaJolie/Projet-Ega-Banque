@@ -138,7 +138,7 @@ import { FormsModule } from '@angular/forms';
                 <input type="tel" placeholder="Téléphone" [(ngModel)]="formData.telephone" name="telephone" required>
               </div>
               <textarea placeholder="Message" [(ngModel)]="formData.message" name="message" required></textarea>
-              <p class="form-note">*indiquez les informations manquants</p>
+              <p class="form-note" *ngIf="formSubmitted && (!formData.nom || !formData.prenom || !formData.service || !formData.telephone || !formData.message)">*indiquez les informations manquants</p>
               <button type="submit" class="submit-btn" [disabled]="!contactForm.form.valid">Envoyer</button>
             </form>
           </div>
@@ -871,6 +871,8 @@ export class LandingComponent {
     message: ''
   };
 
+  formSubmitted = false;
+
   scrollToSection(sectionId: string) {
     const element = document.getElementById(sectionId);
     if (element) {
@@ -885,9 +887,18 @@ export class LandingComponent {
   }
 
   onSubmit() {
+    this.formSubmitted = true;
     console.log('Formulaire soumis:', this.formData);
+
+    // Check if all required fields are filled
+    if (!this.formData.nom || !this.formData.prenom || !this.formData.service || !this.formData.telephone || !this.formData.message) {
+      // Don't show success message if form is incomplete
+      return;
+    }
+
     alert('Message envoyé avec succès!');
     this.resetForm();
+    this.formSubmitted = false;
   }
 
   resetForm() {

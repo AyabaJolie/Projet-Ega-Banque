@@ -1,21 +1,34 @@
- import { Component, OnInit } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../services/auth.service';
 import { LayoutService } from '../services/layout.service';
 import { ApiService } from '../services/api.service';
-import { LucideAngularModule, Home, Users, CreditCard, BarChart3, User, Settings, LogOut, Search, Bell, Plus, Eye, Edit, Trash2, Filter, Lock, Unlock } from 'lucide-angular';
+import { LucideAngularModule, Home, Users, CreditCard, BarChart3, User, Settings, LogOut, Search, Bell, Plus, Eye, Edit, Trash2, Filter, Lock, Unlock, X } from 'lucide-angular';
+
+// Interface pour le propriétaire
+export interface Proprietaire {
+  id: number;
+  nom: string;
+  prenom: string;
+  dateNaissance: string;
+  sexe: 'M' | 'F';
+  adresse: string;
+  telephone: string;
+  email: string;
+  nationalite: string;
+}
 
 // Interface pour les comptes
 export interface Compte {
   id: number;
   numeroCompte: string;
-  typeCompte: 'Épargne' | 'Courant' | 'Entreprise' | 'Jeune';
+  typeCompte: 'Épargne' | 'Courant';
   dateCreation: string;
   solde: number;
   clientId: number;
-  proprietaire: string;
+  proprietaire: Proprietaire;
   statut: 'Actif' | 'Bloqué' | 'Supprimé' | 'Inactif';
   devise: string;
 }
@@ -35,35 +48,99 @@ export interface Compte {
           </button>
         </div>
         
-        <!-- Filters Section -->
-        <div class="filters-section">
-          <div class="search-filter">
-            <lucide-icon name="search" class="search-icon"></lucide-icon>
-            <input type="text" placeholder="Rechercher un compte..." class="filter-input" [(ngModel)]="searchTerm" (input)="applyFilters()">
+        <!-- Filtres Actifs -->
+        <div *ngIf="hasActiveFilters()" class="active-filters">
+          <div class="filters-header">
+            <span class="filters-title">Filtres actifs</span>
+            <button class="clear-all-filters" (click)="resetFilters()">
+              <lucide-icon name="x" size="16"></lucide-icon>
+              Tout effacer
+            </button>
           </div>
-          
-          <div class="filter-dropdown">
-            <lucide-icon name="filter" class="filter-icon"></lucide-icon>
-            <select class="filter-select" [(ngModel)]="typeFilter" (change)="applyFilters()">
-              <option value="">Tous les types</option>
-              <option value="Courant">Courant</option>
-              <option value="Épargne">Épargne</option>
-             
-            </select>
+          <div class="filter-tags">
+            <div *ngIf="searchTerm" class="filter-tag">
+              <span>Recherche: "{{ searchTerm }}"</span>
+              <button class="remove-filter" (click)="removeFilter('search')">
+                <lucide-icon name="x" size="12"></lucide-icon>
+              </button>
+            </div>
+            <div *ngIf="typeFilter" class="filter-tag">
+              <span>Type: {{ typeFilter }}</span>
+              <button class="remove-filter" (click)="removeFilter('type')">
+                <lucide-icon name="x" size="12"></lucide-icon>
+              </button>
+            </div>
+            <div *ngIf="statutFilter" class="filter-tag">
+              <span>Statut: {{ statutFilter }}</span>
+              <button class="remove-filter" (click)="removeFilter('statut')">
+                <lucide-icon name="x" size="12"></lucide-icon>
+              </button>
+            </div>
           </div>
+        </div>
 
-          <div class="filter-dropdown">
-            <lucide-icon name="filter" class="filter-icon"></lucide-icon>
-            <select class="filter-select" [(ngModel)]="statutFilter" (change)="applyFilters()">
-              <option value="">Tous les statuts</option>
-              <option value="Actif">Actif</option>
-              <option value="Inactif">Inactif</option>
-             
-            </select>
+        <!-- Search and Filter Bar -->
+        <div class="search-filter-bar">
+          <div class="search-container">
+            <label class="search-label">Rechercher</label>
+            <div class="search-input-wrapper">
+              <lucide-icon name="search" class="search-icon"></lucide-icon>
+              <input
+                type="text"
+                class="search-input"
+                placeholder="Numéro, nom, prénom, email..."
+                [(ngModel)]="searchTerm"
+                (input)="applyFilters()"
+              >
+            </div>
+          </div>
+          <div class="filter-group">
+            <div class="filter-container">
+              <label class="filter-label">Type de compte</label>
+              <select class="filter-select" [(ngModel)]="typeFilter" (change)="applyFilters()">
+                <option value="">Tous les types</option>
+                <option value="Courant">Courant</option>
+                <option value="Épargne">Épargne</option>
+               
+              </select>
+            </div>
+            <div class="filter-container">
+              <label class="filter-label">Statut</label>
+              <select class="filter-select" [(ngModel)]="statutFilter" (change)="applyFilters()">
+                <option value="">Tous les statuts</option>
+                <option value="Actif">Actif</option>
+                <option value="Bloqué">Bloqué</option>
+                <option value="Inactif">Inactif</option>
+                <option value="Supprimé">Supprimé</option>
+              </select>
+            </div>
+            <div class="filter-container">
+              <label class="filter-label">Devise</label>
+              <select class="filter-select" [(ngModel)]="deviseFilter" (change)="applyFilters()">
+                <option value="">Toutes</option>
+                <option value="CFA">CFA</option>
+                <option value="EUR">EUR</option>
+                <option value="USD">USD</option>
+              </select>
+            </div>
           </div>
         </div>
         
-        
+        <!-- Stats des filtres -->
+        <div class="filter-stats">
+          <div class="stat-card">
+            <div class="stat-value">{{ filteredComptes.length }}</div>
+            <div class="stat-label">Comptes filtrés</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{{ getTotalSolde() | number }}</div>
+            <div class="stat-label">Solde total (CFA)</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{{ getActiveComptesCount() }}</div>
+            <div class="stat-label">Comptes actifs</div>
+          </div>
+        </div>
         
         <!-- Comptes Table -->
         <div class="table-container">
@@ -77,129 +154,26 @@ export interface Compte {
                 <th>Solde</th>
                 <th>Propriétaire</th>
                 <th>Statut</th>
-                <th>Actions</th>
+              
               </tr>
             </thead>
             <tbody>
-  <tr class="table-row">
-    <td>CPT001</td>
-    <td class="account-number">TG53 3001 0000 1234 5678</td>
-    <td><span class="account-type-badge courant">Courant</span></td>
-    <td>2024-03-12</td>
-    <td class="solde">250 000 FCFA</td>
-    <td>Kossi AGBESSI</td>
-    <td><span class="status-badge actif">Actif</span></td>
-    <td class="actions">
-      <button class="action-btn view-btn"><lucide-icon name="eye"></lucide-icon></button>
-      <button class="action-btn edit-btn"><lucide-icon name="edit"></lucide-icon></button>
-      <button class="action-btn delete-btn"><lucide-icon name="trash-2"></lucide-icon></button>
-      <button class="action-btn block-btn" title="Bloquer le compte">
-        <lucide-icon name="lock"></lucide-icon>
-      </button>
-    </td>
-  </tr>
-
-  <tr class="table-row">
-    <td>CPT002</td>
-    <td class="account-number">BJ29 3000 2000 9876 5432</td>
-    <td><span class="account-type-badge epargne">Épargne</span></td>
-    <td>2023-11-05</td>
-    <td class="solde">1 200 000 FCFA</td>
-    <td>Aïcha SOGLO</td>
-    <td><span class="status-badge actif">Actif</span></td>
-    <td class="actions">
-      <button class="action-btn view-btn"><lucide-icon name="eye"></lucide-icon></button>
-      <button class="action-btn edit-btn"><lucide-icon name="edit"></lucide-icon></button>
-      <button class="action-btn delete-btn"><lucide-icon name="trash-2"></lucide-icon></button>
-      <button class="action-btn block-btn" title="Bloquer le compte">
-        <lucide-icon name="lock"></lucide-icon>
-      </button>
-    </td>
-  </tr>
-
-  <tr class="table-row">
-    <td>CPT003</td>
-    <td class="account-number">CI05 0100 0100 4567 8901</td>
-    <td><span class="account-type-badge courant">Courant</span></td>
-    <td>2022-07-19</td>
-    <td class="solde">450 000 FCFA</td>
-    <td>Yao KOUASSI</td>
-    <td><span class="status-badge bloque">Bloqué</span></td>
-    <td class="actions">
-      <button class="action-btn view-btn"><lucide-icon name="eye"></lucide-icon></button>
-      <button class="action-btn edit-btn"><lucide-icon name="edit"></lucide-icon></button>
-      <button class="action-btn delete-btn"><lucide-icon name="trash-2"></lucide-icon></button>
-      <button class="action-btn block-btn" title="Débloquer le compte">
-        <lucide-icon name="unlock"></lucide-icon>
-      </button>
-    </td>
-  </tr>
-
-  <tr class="table-row">
-    <td>CPT004</td>
-    <td class="account-number">SN08 0010 0001 2345 6789</td>
-    <td><span class="account-type-badge epargne">Épargne</span></td>
-    <td>2021-02-28</td>
-    <td class="solde">3 000 000 FCFA</td>
-    <td>Mamadou DIOP</td>
-    <td><span class="status-badge actif">Actif</span></td>
-    <td class="actions">
-      <button class="action-btn view-btn"><lucide-icon name="eye"></lucide-icon></button>
-      <button class="action-btn edit-btn"><lucide-icon name="edit"></lucide-icon></button>
-      <button class="action-btn delete-btn"><lucide-icon name="trash-2"></lucide-icon></button>
-      <button class="action-btn block-btn"><lucide-icon name="lock"></lucide-icon></button>
-    </td>
-  </tr>
-
-  <tr class="table-row">
-    <td>CPT005</td>
-    <td class="account-number">TG76 3001 0000 1122 3344</td>
-    <td><span class="account-type-badge courant">Courant</span></td>
-    <td>2024-06-01</td>
-    <td class="solde">98 000 FCFA</td>
-    <td>Ama MENSAH</td>
-    <td><span class="status-badge actif">Actif</span></td>
-    <td class="actions">
-      <button class="action-btn view-btn"><lucide-icon name="eye"></lucide-icon></button>
-      <button class="action-btn edit-btn"><lucide-icon name="edit"></lucide-icon></button>
-      <button class="action-btn delete-btn"><lucide-icon name="trash-2"></lucide-icon></button>
-      <button class="action-btn block-btn"><lucide-icon name="lock"></lucide-icon></button>
-    </td>
-  </tr>
-
-  <tr class="table-row">
-    <td>CPT006</td>
-    <td class="account-number">BF91 4000 5000 6677 8899</td>
-    <td><span class="account-type-badge epargne">Épargne</span></td>
-    <td>2020-09-14</td>
-    <td class="solde">1 750 000 FCFA</td>
-    <td>Issa OUEDRAOGO</td>
-    <td><span class="status-badge bloque">Bloqué</span></td>
-    <td class="actions">
-      <button class="action-btn view-btn"><lucide-icon name="eye"></lucide-icon></button>
-      <button class="action-btn edit-btn"><lucide-icon name="edit"></lucide-icon></button>
-      <button class="action-btn delete-btn"><lucide-icon name="trash-2"></lucide-icon></button>
-      <button class="action-btn block-btn"><lucide-icon name="unlock"></lucide-icon></button>
-    </td>
-  </tr>
-
-  <tr class="table-row">
-    <td>CPT007</td>
-    <td class="account-number">CM42 1000 2000 3344 5566</td>
-    <td><span class="account-type-badge courant">Courant</span></td>
-    <td>2023-01-10</td>
-    <td class="solde">610 000 FCFA</td>
-    <td>Chantal NKOMO</td>
-    <td><span class="status-badge actif">Actif</span></td>
-    <td class="actions">
-      <button class="action-btn view-btn"><lucide-icon name="eye"></lucide-icon></button>
-      <button class="action-btn edit-btn"><lucide-icon name="edit"></lucide-icon></button>
-      <button class="action-btn delete-btn"><lucide-icon name="trash-2"></lucide-icon></button>
-      <button class="action-btn block-btn"><lucide-icon name="lock"></lucide-icon></button>
-    </td>
-  </tr>
-</tbody>
-
+              <tr class="table-row" *ngFor="let compte of getCurrentPageComptes(); trackBy: trackById">
+                <td>{{ compte.id }}</td>
+                <td class="account-number">{{ compte.numeroCompte }}</td>
+                <td><span class="account-type-badge" [ngClass]="getAccountTypeClass(compte.typeCompte)">{{ compte.typeCompte }}</span></td>
+                <td>{{ compte.dateCreation }}</td>
+                <td class="solde">{{ compte.solde | number }} {{ compte.devise }}</td>
+                <td>
+                  <div class="proprietaire-info">
+                    <div class="proprietaire-nom">{{ compte.proprietaire.nom }} {{ compte.proprietaire.prenom }}</div>
+                    <div class="proprietaire-contact">{{ compte.proprietaire.telephone }}</div>
+                  </div>
+                </td>
+                <td><span class="status-badge" [ngClass]="getStatusClass(compte.statut)">{{ compte.statut }}</span></td>
+                
+              </tr>
+            </tbody>
           </table>
         </div>
         
@@ -230,6 +204,200 @@ export interface Compte {
             >
               Suivant
             </button>
+          </div>
+        </div>
+
+        <!-- Account Details Modal -->
+        <div *ngIf="showAccountModal" class="modal-overlay" (click)="closeModal()">
+          <div class="modal-content" (click)="$event.stopPropagation()">
+            <div class="modal-header">
+              <h2>Détails du Compte</h2>
+              <button class="close-btn" (click)="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" *ngIf="selectedAccount">
+              <div class="modal-section">
+                <h3>Informations du compte</h3>
+                <div class="detail-row">
+                  <label>Numéro de compte:</label>
+                  <span>{{ selectedAccount.numeroCompte }}</span>
+                </div>
+                <div class="detail-row">
+                  <label>Type de compte:</label>
+                  <span>{{ selectedAccount.typeCompte }}</span>
+                </div>
+                <div class="detail-row">
+                  <label>Date de création:</label>
+                  <span>{{ selectedAccount.dateCreation }}</span>
+                </div>
+                <div class="detail-row">
+                  <label>Solde:</label>
+                  <span>{{ selectedAccount.solde | number }} {{ selectedAccount.devise }}</span>
+                </div>
+                <div class="detail-row">
+                  <label>Statut:</label>
+                  <span class="status-badge" [ngClass]="getStatusClass(selectedAccount.statut)">{{ selectedAccount.statut }}</span>
+                </div>
+              </div>
+
+              <div class="modal-section">
+                <h3>Informations du propriétaire</h3>
+                <div class="detail-row">
+                  <label>Nom complet:</label>
+                  <span>{{ selectedAccount.proprietaire.nom }} {{ selectedAccount.proprietaire.prenom }}</span>
+                </div>
+                <div class="detail-row">
+                  <label>Date de naissance:</label>
+                  <span>{{ selectedAccount.proprietaire.dateNaissance }}</span>
+                </div>
+                <div class="detail-row">
+                  <label>Sexe:</label>
+                  <span>{{ selectedAccount.proprietaire.sexe === 'M' ? 'Masculin' : 'Féminin' }}</span>
+                </div>
+                <div class="detail-row">
+                  <label>Adresse:</label>
+                  <span>{{ selectedAccount.proprietaire.adresse }}</span>
+                </div>
+                <div class="detail-row">
+                  <label>Téléphone:</label>
+                  <span>{{ selectedAccount.proprietaire.telephone }}</span>
+                </div>
+                <div class="detail-row">
+                  <label>Email:</label>
+                  <span>{{ selectedAccount.proprietaire.email }}</span>
+                </div>
+                <div class="detail-row">
+                  <label>Nationalité:</label>
+                  <span>{{ selectedAccount.proprietaire.nationalite }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Create Account Modal -->
+        <div *ngIf="showCreateAccountModal" class="modal-overlay" (click)="closeCreateModal()">
+          <div class="modal-content wide-modal" (click)="$event.stopPropagation()">
+            <div class="modal-header">
+              <h2>Créer un Nouveau Compte</h2>
+              <button class="close-btn" (click)="closeCreateModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+              <form (ngSubmit)="createAccount()" #accountForm="ngForm">
+                <div class="form-section">
+                  <h3>Informations du compte</h3>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="numeroCompte">Numéro de compte *</label>
+                      <input type="text" id="numeroCompte" name="numeroCompte" 
+                             [(ngModel)]="newAccount.numeroCompte" required 
+                             class="form-input" placeholder="CMR0012345678">
+                    </div>
+                    <div class="form-group">
+                      <label for="typeCompte">Type de compte *</label>
+                      <select id="typeCompte" name="typeCompte" 
+                              [(ngModel)]="newAccount.typeCompte" required 
+                              class="form-select">
+                        <option value="Courant">Courant</option>
+                        <option value="Épargne">Épargne</option>
+                     
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="dateCreation">Date de création</label>
+                      <input type="date" id="dateCreation" name="dateCreation" 
+                             [(ngModel)]="newAccount.dateCreation" 
+                             class="form-input">
+                    </div>
+                    <div class="form-group">
+                      <label for="solde">Solde initial *</label>
+                      <input type="number" id="solde" name="solde" 
+                             [(ngModel)]="newAccount.solde" required 
+                             class="form-input" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                      <label for="devise">Devise *</label>
+                      <select id="devise" name="devise" 
+                              [(ngModel)]="newAccount.devise" required 
+                              class="form-select">
+                        <option value="CFA">CFA</option>
+                        <option value="EUR">EUR</option>
+                        <option value="USD">USD</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="form-section">
+                  <h3>Informations du propriétaire</h3>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="nom">Nom *</label>
+                      <input type="text" id="nom" name="nom" 
+                             [(ngModel)]="newAccount.proprietaire!.nom" required 
+                             class="form-input">
+                    </div>
+                    <div class="form-group">
+                      <label for="prenom">Prénom *</label>
+                      <input type="text" id="prenom" name="prenom" 
+                             [(ngModel)]="newAccount.proprietaire!.prenom" required 
+                             class="form-input">
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="dateNaissance">Date de naissance *</label>
+                      <input type="date" id="dateNaissance" name="dateNaissance" 
+                             [(ngModel)]="newAccount.proprietaire!.dateNaissance" required 
+                             class="form-input">
+                    </div>
+                    <div class="form-group">
+                      <label for="sexe">Sexe *</label>
+                      <select id="sexe" name="sexe" 
+                              [(ngModel)]="newAccount.proprietaire!.sexe" required 
+                              class="form-select">
+                        <option value="M">Masculin</option>
+                        <option value="F">Féminin</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label for="adresse">Adresse *</label>
+                    <input type="text" id="adresse" name="adresse" 
+                           [(ngModel)]="newAccount.proprietaire!.adresse" required 
+                           class="form-input" placeholder="Rue, Ville, Code postal">
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="telephone">Téléphone *</label>
+                      <input type="tel" id="telephone" name="telephone" 
+                             [(ngModel)]="newAccount.proprietaire!.telephone" required 
+                             class="form-input" placeholder="+237 6XX XX XX XX">
+                    </div>
+                    <div class="form-group">
+                      <label for="email">Email *</label>
+                      <input type="email" id="email" name="email" 
+                             [(ngModel)]="newAccount.proprietaire!.email" required 
+                             class="form-input" placeholder="exemple@email.com">
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label for="nationalite">Nationalité *</label>
+                    <input type="text" id="nationalite" name="nationalite" 
+                           [(ngModel)]="newAccount.proprietaire!.nationalite" required 
+                           class="form-input" placeholder="Camerounaise">
+                  </div>
+                </div>
+
+                <div class="form-actions">
+                  <button type="button" class="cancel-btn" (click)="closeCreateModal()">Annuler</button>
+                  <button type="submit" class="submit-btn" [disabled]="!accountForm.valid">
+                    Créer le compte
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       </div>
@@ -277,66 +445,202 @@ export interface Compte {
       height: 16px;
     }
 
-    /* Filters Section */
-    .filters-section {
-      display: flex;
-      gap: 20px;
-      margin-bottom: 30px;
+    /* Filtres actifs */
+    .active-filters {
+      background: #F9FAFB;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 20px;
+      border: 1px solid #E5E7EB;
     }
 
-    .search-filter {
-      flex: 1;
-      max-width: 400px;
-      position: relative;
+    .filters-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .filters-title {
+      font-family: 'Inter';
+      font-weight: 600;
+      color: #374151;
+      font-size: 14px;
+    }
+
+    .clear-all-filters {
       display: flex;
       align-items: center;
-      background: #FFFFFF;
-      border: 1px solid #E5E7EB;
-      border-radius: 10px;
-      padding: 0 14px;
-      gap: 10px;
-    }
-
-    .filter-input {
-      flex: 1;
-      height: 40px;
+      gap: 6px;
+      background: none;
       border: none;
-      outline: none;
+      color: #DC2626;
       font-family: 'Inter';
       font-size: 14px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    .clear-all-filters:hover {
+      background: #FEE2E2;
+    }
+
+    .filter-tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .filter-tag {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #FFFFFF;
+      border: 1px solid #D1D5DB;
+      border-radius: 20px;
+      padding: 6px 12px;
+      font-family: 'Inter';
+      font-size: 13px;
       color: #374151;
     }
 
-    .filter-input::placeholder {
+    .remove-filter {
+      background: none;
+      border: none;
+      padding: 2px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+    }
+
+    .remove-filter:hover {
+      background: #F3F4F6;
+    }
+
+    /* Search and Filter Bar */
+    .search-filter-bar {
+      background: #FFFFFF;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.06);
+    }
+
+    .search-container {
+      margin-bottom: 20px;
+    }
+
+    .search-label {
+      display: block;
+      font-family: 'Inter';
+      font-weight: 600;
+      color: #374151;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    .search-input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      width: 16px;
+      height: 16px;
       color: #9CA3AF;
     }
 
-    .filter-dropdown {
-      display: flex;
-      align-items: center;
+    .search-input {
+      width: 100%;
+      height: 40px;
+      padding: 0 40px;
+      border: 1px solid #D1D5DB;
+      border-radius: 8px;
+      font-family: 'Inter';
+      font-size: 14px;
+      color: #374151;
       background: #FFFFFF;
-      border: 1px solid #E5E7EB;
-      border-radius: 10px;
-      padding: 0 14px;
-      gap: 10px;
-      min-width: 200px;
     }
 
-    .filter-icon {
-      width: 16px;
-      height: 16px;
-      color: #6B7280;
+    .search-input:focus {
+      outline: none;
+      border-color: #3B82F6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .filter-group {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .filter-container {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .filter-label {
+      font-family: 'Inter';
+      font-weight: 600;
+      color: #374151;
+      font-size: 14px;
+      margin-bottom: 8px;
     }
 
     .filter-select {
       height: 40px;
-      border: none;
-      outline: none;
-      background: transparent;
+      padding: 0 12px;
+      border: 1px solid #D1D5DB;
+      border-radius: 8px;
       font-family: 'Inter';
       font-size: 14px;
       color: #374151;
+      background: #FFFFFF;
       cursor: pointer;
+    }
+
+    .filter-select:focus {
+      outline: none;
+      border-color: #3B82F6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    /* Filter Stats */
+    .filter-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: #FFFFFF;
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+      box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.06);
+    }
+
+    .stat-value {
+      font-family: 'Inter';
+      font-weight: 700;
+      font-size: 24px;
+      color: #1F2937;
+      margin-bottom: 4px;
+    }
+
+    .stat-label {
+      font-family: 'Inter';
+      font-size: 12px;
+      color: #6B7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     /* Table Container */
@@ -411,6 +715,21 @@ export interface Compte {
       color: #059669;
     }
 
+    .proprietaire-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .proprietaire-nom {
+      font-weight: 600;
+      color: #1F2937;
+    }
+
+    .proprietaire-contact {
+      font-size: 12px;
+      color: #6B7280;
+    }
+
     /* Account Type Badges */
     .account-type-badge {
       display: inline-block;
@@ -466,6 +785,13 @@ export interface Compte {
       color: #6B7280;
     }
 
+    .supprime {
+      background: #F3F4F6;
+      color: #6B7280;
+      text-decoration: line-through;
+    }
+
+    /* Actions */
     .actions {
       display: flex;
       gap: 8px;
@@ -571,54 +897,231 @@ export interface Compte {
       color: #374151;
       font-weight: 500;
     }
-    /* Dashboard Layout */
-    .dashboard {
-      display: flex;
-    }
-    .sidebar {
-      width: 250px;
-      height: 100vh;
-      background: #FFFFFF;
-      box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px 0;
-    }
-    .logo {
-      width: 80px;
-      height: 80px;
-      margin-bottom: 30px;
-    }
-    /* Menu Items */
-    .menu-item {
+
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
       width: 100%;
-      padding: 15px 20px;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: #FFFFFF;
+      border-radius: 15px;
+      box-shadow: 0px 10px 40px rgba(0, 0, 0, 0.2);
+      max-width: 600px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .wide-modal {
+      max-width: 800px;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 30px;
+      border-bottom: 1px solid #E5E7EB;
+    }
+
+    .modal-header h2 {
+      font-family: 'Inter';
+      font-weight: 700;
+      font-size: 24px;
+      color: #1F2937;
+      margin: 0;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 28px;
+      color: #6B7280;
+      cursor: pointer;
+      padding: 0;
+      width: 30px;
+      height: 30px;
       display: flex;
       align-items: center;
-      gap: 15px;
-      cursor: pointer;
+      justify-content: center;
+      border-radius: 50%;
       transition: all 0.3s ease;
-      border-radius: 0 20px 20px 0;
-      margin-bottom: 5px;
     }
-    .menu-item:hover {
+
+    .close-btn:hover {
       background: #F3F4F6;
-      transform: translateX(5px);
-    }
-    .menu-item .menu-icon {
-      width: 20px;
-      height: 20px;
-      color: #6B7280;
-    }
-    .menu-item span {
-      font-family: 'Work Sans';
-      font-weight: 500;
-      font-size: 16px;
       color: #374151;
     }
-    .main-content {
-      flex: 1;
+
+    .modal-body {
+      padding: 30px;
+    }
+
+    .modal-section {
+      margin-bottom: 30px;
+    }
+
+    .modal-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .modal-section h3 {
+      font-family: 'Inter';
+      font-weight: 600;
+      font-size: 18px;
+      color: #374151;
+      margin: 0 0 20px 0;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #F3F4F6;
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 0;
+      border-bottom: 1px solid #F3F4F6;
+    }
+
+    .detail-row:last-child {
+      border-bottom: none;
+    }
+
+    .detail-row label {
+      font-family: 'Inter';
+      font-weight: 600;
+      color: #6B7280;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .detail-row span {
+      font-family: 'Inter';
+      font-weight: 500;
+      color: #1F2937;
+      font-size: 16px;
+    }
+
+    /* Create Account Form */
+    .form-section {
+      margin-bottom: 30px;
+    }
+
+    .form-section h3 {
+      font-family: 'Inter';
+      font-weight: 600;
+      font-size: 18px;
+      color: #374151;
+      margin: 0 0 20px 0;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #F3F4F6;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-group label {
+      font-family: 'Inter';
+      font-weight: 600;
+      color: #374151;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    .form-group label::after {
+      content: ' *';
+      color: #DC2626;
+      display: none;
+    }
+
+    .form-group label.required::after {
+      display: inline;
+    }
+
+    .form-input,
+    .form-select {
+      height: 40px;
+      padding: 0 12px;
+      border: 1px solid #D1D5DB;
+      border-radius: 8px;
+      font-family: 'Inter';
+      font-size: 14px;
+      color: #374151;
+      background: #FFFFFF;
+    }
+
+    .form-input:focus,
+    .form-select:focus {
+      outline: none;
+      border-color: #3B82F6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      padding-top: 20px;
+      border-top: 1px solid #E5E7EB;
+    }
+
+    .cancel-btn {
+      padding: 10px 20px;
+      background: #FFFFFF;
+      border: 1px solid #D1D5DB;
+      border-radius: 8px;
+      font-family: 'Inter';
+      font-weight: 600;
+      font-size: 14px;
+      color: #374151;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .cancel-btn:hover {
+      background: #F9FAFB;
+    }
+
+    .submit-btn {
+      padding: 10px 24px;
+      background: #3B82F6;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Inter';
+      font-weight: 600;
+      font-size: 14px;
+      color: #FFFFFF;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .submit-btn:hover:not(:disabled) {
+      background: #2563EB;
+    }
+
+    .submit-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
   `]
 })
@@ -632,10 +1135,34 @@ export class ComptesComponent implements OnInit {
   searchTerm = '';
   typeFilter = '';
   statutFilter = '';
+  deviseFilter = '';
 
   // User properties
   currentUser: any;
   isClient = false;
+
+  // Modal properties
+  showAccountModal = false;
+  selectedAccount: Compte | null = null;
+  showCreateAccountModal = false;
+
+  // New account form
+  newAccount: Partial<Compte> = {
+    typeCompte: 'Courant',
+    devise: 'CFA',
+    statut: 'Actif',
+    proprietaire: {
+      id: 0,
+      nom: '',
+      prenom: '',
+      dateNaissance: '',
+      sexe: 'M',
+      adresse: '',
+      telephone: '',
+      email: '',
+      nationalite: 'Camerounaise'
+    }
+  };
 
   constructor(private authService: AuthService, private apiService: ApiService) {}
 
@@ -658,7 +1185,17 @@ export class ComptesComponent implements OnInit {
         dateCreation: '15/01/2023',
         solde: 2500000,
         clientId: 1,
-        proprietaire: 'AYABA Amina',
+        proprietaire: {
+          id: 1,
+          nom: 'AYABA',
+          prenom: 'Amina',
+          dateNaissance: '15/05/1985',
+          sexe: 'F',
+          adresse: 'Rue 123, Yaoundé',
+          telephone: '+237 6 12 34 56 78',
+          email: 'amina.ayaba@email.com',
+          nationalite: 'Camerounaise'
+        },
         statut: 'Actif',
         devise: 'CFA'
       },
@@ -669,32 +1206,21 @@ export class ComptesComponent implements OnInit {
         dateCreation: '22/03/2023',
         solde: 1200000,
         clientId: 2,
-        proprietaire: 'MBALLA Jolie',
+        proprietaire: {
+          id: 2,
+          nom: 'MBALLA',
+          prenom: 'Jolie',
+          dateNaissance: '22/08/1990',
+          sexe: 'F',
+          adresse: 'Avenue 456, Douala',
+          telephone: '+237 6 23 45 67 89',
+          email: 'jolie.mballa@email.com',
+          nationalite: 'Camerounaise'
+        },
         statut: 'Actif',
         devise: 'CFA'
       },
-      {
-        id: 3,
-        numeroCompte: 'CMR0056789012',
-        typeCompte: 'Entreprise',
-        dateCreation: '10/05/2023',
-        solde: 7500000,
-        clientId: 3,
-        proprietaire: 'KAMGA Paul',
-        statut: 'Actif',
-        devise: 'CFA'
-      },
-      {
-        id: 4,
-        numeroCompte: 'CMR0098765432',
-        typeCompte: 'Jeune',
-        dateCreation: '05/07/2023',
-        solde: 500000,
-        clientId: 4,
-        proprietaire: 'NGOUAN Marie',
-        statut: 'Bloqué',
-        devise: 'CFA'
-      },
+
       {
         id: 5,
         numeroCompte: 'CMR0034567890',
@@ -702,7 +1228,17 @@ export class ComptesComponent implements OnInit {
         dateCreation: '18/09/2023',
         solde: 3000000,
         clientId: 5,
-        proprietaire: 'TCHOUA Jean',
+        proprietaire: {
+          id: 5,
+          nom: 'TCHOUA',
+          prenom: 'Jean',
+          dateNaissance: '18/12/1980',
+          sexe: 'M',
+          adresse: 'Rue 202, Garoua',
+          telephone: '+237 6 56 78 90 12',
+          email: 'jean.tchoua@email.com',
+          nationalite: 'Camerounaise'
+        },
         statut: 'Actif',
         devise: 'CFA'
       },
@@ -713,7 +1249,17 @@ export class ComptesComponent implements OnInit {
         dateCreation: '30/11/2023',
         solde: 1500000,
         clientId: 6,
-        proprietaire: 'FOUDA Sophie',
+        proprietaire: {
+          id: 6,
+          nom: 'FOUDA',
+          prenom: 'Sophie',
+          dateNaissance: '30/06/1995',
+          sexe: 'F',
+          adresse: 'Avenue 303, Maroua',
+          telephone: '+237 6 67 89 01 23',
+          email: 'sophie.fouda@email.com',
+          nationalite: 'Camerounaise'
+        },
         statut: 'Inactif',
         devise: 'CFA'
       },
@@ -724,21 +1270,22 @@ export class ComptesComponent implements OnInit {
         dateCreation: '12/02/2024',
         solde: 4500000,
         clientId: 7,
-        proprietaire: 'EKOUA David',
+        proprietaire: {
+          id: 7,
+          nom: 'EKOUA',
+          prenom: 'David',
+          dateNaissance: '12/09/1970',
+          sexe: 'M',
+          adresse: 'Boulevard 404, Ngaoundéré',
+          telephone: '+237 6 78 90 12 34',
+          email: 'david.ekoua@email.com',
+          nationalite: 'Camerounaise'
+        },
         statut: 'Actif',
         devise: 'CFA'
       },
-      {
-        id: 8,
-        numeroCompte: 'CMR0045678901',
-        typeCompte: 'Entreprise',
-        dateCreation: '25/04/2024',
-        solde: 8500000,
-        clientId: 1,
-        proprietaire: 'AYABA Amina',
-        statut: 'Actif',
-        devise: 'CFA'
-      },
+    
+      
       {
         id: 9,
         numeroCompte: 'CMR0067890123',
@@ -746,68 +1293,101 @@ export class ComptesComponent implements OnInit {
         dateCreation: '08/06/2024',
         solde: 2200000,
         clientId: 3,
-        proprietaire: 'KAMGA Paul',
+        proprietaire: {
+          id: 3,
+          nom: 'KAMGA',
+          prenom: 'Paul',
+          dateNaissance: '10/11/1975',
+          sexe: 'M',
+          adresse: 'Boulevard 789, Yaoundé',
+          telephone: '+237 6 34 56 78 90',
+          email: 'paul.kamga@email.com',
+          nationalite: 'Camerounaise'
+        },
         statut: 'Supprimé',
-        devise: 'CFA'
+        devise: 'USD'
       },
-      {
-        id: 10,
-        numeroCompte: 'CMR0011112222',
-        typeCompte: 'Jeune',
-        dateCreation: '20/08/2024',
-        solde: 800000,
-        clientId: 4,
-        proprietaire: 'NGOUAN Marie',
-        statut: 'Actif',
-        devise: 'CFA'
-      }
+     
     ];
 
     this.filteredComptes = [...this.allComptes];
   }
 
   filterClientAccounts() {
-    // For client, show only their accounts (assuming clientId = 1 for client@gmail.com)
     this.filteredComptes = this.allComptes.filter(compte => compte.clientId === 1);
   }
 
   applyFilters() {
     this.filteredComptes = this.allComptes.filter(compte => {
       // Filtre par recherche
-      const searchMatch = !this.searchTerm || 
+      const searchMatch = !this.searchTerm ||
         compte.numeroCompte.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-        compte.proprietaire.toLowerCase().includes(this.searchTerm.toLowerCase());
-      
+        compte.proprietaire.nom.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
+        compte.proprietaire.prenom.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
+        compte.proprietaire.email.toLowerCase().includes(this.searchTerm.toLowerCase());
+
       // Filtre par type
       const typeMatch = !this.typeFilter || compte.typeCompte === this.typeFilter;
-      
+
       // Filtre par statut
       const statutMatch = !this.statutFilter || compte.statut === this.statutFilter;
-      
-      return searchMatch && typeMatch && statutMatch;
+
+      // Filtre par devise
+      const deviseMatch = !this.deviseFilter || compte.devise === this.deviseFilter;
+
+      return searchMatch && typeMatch && statutMatch && deviseMatch;
     });
-    
-    this.currentPage = 1; // Revenir à la première page après filtrage
+
+    this.currentPage = 1;
+  }
+
+  hasActiveFilters(): boolean {
+    return !!this.searchTerm || !!this.typeFilter || !!this.statutFilter || !!this.deviseFilter;
+  }
+
+  removeFilter(filterType: 'search' | 'type' | 'statut' | 'devise') {
+    switch(filterType) {
+      case 'search':
+        this.searchTerm = '';
+        break;
+      case 'type':
+        this.typeFilter = '';
+        break;
+      case 'statut':
+        this.statutFilter = '';
+        break;
+      case 'devise':
+        this.deviseFilter = '';
+        break;
+    }
+    this.applyFilters();
+  }
+
+  resetFilters() {
+    this.searchTerm = '';
+    this.typeFilter = '';
+    this.statutFilter = '';
+    this.deviseFilter = '';
+    this.applyFilters();
+  }
+
+  
+  getStatusClass(statut: string): string {
+    const statutMap: {[key: string]: string} = {
+      'Actif': 'actif',
+      'Bloqué': 'bloque',
+      'Inactif': 'inactif',
+      'Supprimé': 'supprime'
+    };
+    return statutMap[statut] || 'inactif';
   }
 
   getAccountTypeClass(type: string): string {
     const typeMap: {[key: string]: string} = {
-      'Courant': 'account-type-courant',
-      'Épargne': 'account-type-epargne',
-      'Entreprise': 'account-type-entreprise',
-      'Jeune': 'account-type-jeune'
+      'Courant': 'courant',
+      'Épargne': 'epargne'
     };
-    return typeMap[type] || 'account-type-courant';
-  }
-
-  getStatusClass(statut: string): string {
-    const statutMap: {[key: string]: string} = {
-      'Actif': 'status-actif',
-      'Bloqué': 'status-bloque',
-      'Inactif': 'status-inactif',
-      'Supprimé': 'status-supprime'
-    };
-    return statutMap[statut] || 'status-inactif';
+    return typeMap[type] || 'courant';
   }
 
   getCurrentPageComptes() {
@@ -843,7 +1423,7 @@ export class ComptesComponent implements OnInit {
 
   getTotalSolde(): number {
     return this.filteredComptes
-      .filter(compte => compte.statut !== 'Supprimé')
+      .filter(compte => compte.statut !== 'Supprimé' && compte.devise === 'CFA')
       .reduce((total, compte) => total + compte.solde, 0);
   }
 
@@ -856,38 +1436,112 @@ export class ComptesComponent implements OnInit {
   }
 
   viewCompte(compte: Compte) {
-    console.log('Voir compte:', compte);
-    // Implémenter la logique pour afficher les détails
+    this.selectedAccount = compte;
+    this.showAccountModal = true;
+  }
+
+  closeModal() {
+    this.showAccountModal = false;
+    this.selectedAccount = null;
   }
 
   editCompte(compte: Compte) {
     console.log('Modifier compte:', compte);
-    // Implémenter la logique d'édition
   }
 
   deleteCompte(compte: Compte) {
     if (confirm(`Êtes-vous sûr de vouloir supprimer le compte ${compte.numeroCompte} ?`)) {
       console.log('Supprimer compte:', compte);
-      // Implémenter la logique de suppression
     }
   }
 
   toggleBlockCompte(compte: Compte) {
     const newStatus = compte.statut === 'Bloqué' ? 'Actif' : 'Bloqué';
-    const message = compte.statut === 'Bloqué' 
+    const message = compte.statut === 'Bloqué'
       ? `Débloquer le compte ${compte.numeroCompte} ?`
       : `Bloquer le compte ${compte.numeroCompte} ?`;
-    
+
     if (confirm(message)) {
       compte.statut = newStatus;
       console.log('Changement de statut:', compte);
-      // Implémenter la logique de blocage/déblocage
     }
   }
 
   openNewAccountModal() {
-    console.log('Ouvrir modal nouveau compte');
-    // Implémenter l'ouverture d'un modal pour créer un nouveau compte
+    this.showCreateAccountModal = true;
+    // Set default date to today
+    if (!this.newAccount.dateCreation) {
+      this.newAccount.dateCreation = new Date().toISOString().split('T')[0];
+    }
+  }
+
+  closeCreateModal() {
+    this.showCreateAccountModal = false;
+    this.newAccount = {
+      typeCompte: 'Courant',
+      devise: 'CFA',
+      statut: 'Actif',
+      proprietaire: {
+        id: 0,
+        nom: '',
+        prenom: '',
+        dateNaissance: '',
+        sexe: 'M',
+        adresse: '',
+        telephone: '',
+        email: '',
+        nationalite: 'Camerounaise'
+      }
+    };
+  }
+
+  createAccount() {
+    if (this.validateAccountForm()) {
+      const newId = Math.max(...this.allComptes.map(c => c.id)) + 1;
+      const compte: Compte = {
+        id: newId,
+        numeroCompte: this.newAccount.numeroCompte!,
+        typeCompte: this.newAccount.typeCompte!,
+        dateCreation: this.formatDate(this.newAccount.dateCreation || new Date().toISOString()),
+        solde: this.newAccount.solde!,
+        clientId: this.currentUser?.id || 1,
+        proprietaire: this.newAccount.proprietaire!,
+        statut: this.newAccount.statut || 'Actif',
+        devise: this.newAccount.devise!
+      };
+
+      this.allComptes.push(compte);
+      this.applyFilters();
+      this.closeCreateModal();
+      console.log('Nouveau compte créé:', compte);
+      alert('Compte créé avec succès!');
+    }
+  }
+
+  validateAccountForm(): boolean {
+    const requiredFields = [
+      this.newAccount.numeroCompte,
+      this.newAccount.typeCompte,
+      this.newAccount.solde,
+      this.newAccount.proprietaire?.nom,
+      this.newAccount.proprietaire?.prenom,
+      this.newAccount.proprietaire?.dateNaissance,
+      this.newAccount.proprietaire?.adresse,
+      this.newAccount.proprietaire?.telephone,
+      this.newAccount.proprietaire?.email,
+      this.newAccount.proprietaire?.nationalite
+    ];
+
+    return requiredFields.every(field => field && field.toString().trim() !== '');
+  }
+
+  formatDate(dateString: string): string {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR');
+  }
+
+  trackById(index: number, item: Compte): number {
+    return item.id;
   }
 
   logout() {

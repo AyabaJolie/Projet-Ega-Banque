@@ -1,0 +1,522 @@
+<div class="main-content">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="page-title">Mes Transactions</div>
+    <button class="new-transaction-btn" (click)="openNewTransactionModal()">
+      <lucide-icon name="plus" class="plus-icon"></lucide-icon>
+      Nouvelle transaction
+    </button>
+  </div>
+
+  <!-- Search and Filter Bar -->
+  <div class="search-filter-bar">
+    <div class="search-container">
+      <label class="search-label">Rechercher</label>
+      <div class="search-input-wrapper">
+        <lucide-icon name="search" class="search-icon"></lucide-icon>
+        <input
+          type="text"
+          class="search-input"
+          placeholder="ID, compte, montant..."
+          [(ngModel)]="searchQuery"
+          (input)="applyFilters()"
+        >
+      </div>
+    </div>
+    <div class="filter-group">
+      <div class="date-filter">
+        <label class="date-label">Date début</label>
+        <input type="date" class="date-input" [(ngModel)]="startDate" (change)="applyFilters()">
+      </div>
+      <div class="date-filter">
+        <label class="date-label">Date fin</label>
+        <input type="date" class="date-input" [(ngModel)]="endDate" (change)="applyFilters()">
+      </div>
+      <div class="filter-container">
+        <label class="filter-label">Type</label>
+        <select class="filter-select" [(ngModel)]="typeFilter" (change)="applyFilters()">
+          <option value="">Tous</option>
+          <option value="deposit">Dépôt</option>
+          <option value="withdrawal">Retrait</option>
+          <option value="transfer">Virement</option>
+        </select>
+      </div>
+      <div class="filter-container">
+        <label class="filter-label">Compte</label>
+        <select class="filter-select" [(ngModel)]="accountFilter" (change)="applyFilters()">
+          <option value="">Tous</option>
+          <option *ngFor="let account of clientAccounts" [value]="account.numeroCompte">
+            {{ account.numeroCompte }} ({{ account.typeCompte }})
+          </option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transactions Container -->
+  <div class="transactions-container">
+    <!-- Table Header -->
+    <div class="table-header">
+      <div class="header-date-time">Date & Heure</div>
+      <div class="header-left">
+        <div class="header-client">Transaction</div>
+        <div class="header-transaction-info">Informations</div>
+      </div>
+      <div class="header-center">
+        <div class="header-account">Détails du Compte</div>
+      </div>
+      <div class="header-right">
+        <div class="header-amount">Montant</div>
+      </div>
+    </div>
+
+    <!-- Transaction Items -->
+    <div
+      *ngFor="let transaction of filteredTransactions"
+      class="transaction-item"
+      (click)="openModal(transaction)"
+    >
+      <div class="transaction-date-time">
+        <div class="date-time-info">
+          <div class="transaction-date">{{ formatDate(transaction.transactionDate) }}</div>
+          <div class="transaction-time">{{ transaction.transactionTime }}</div>
+        </div>
+      </div>
+
+      <div class="transaction-left">
+        <div class="transaction-profile profile-{{ transaction.clientInitials.toLowerCase() }}">
+          {{ transaction.clientInitials }}
+        </div>
+        <div class="client-info">
+          <div class="client-name">ID: {{ transaction.id }}</div>
+          <div class="client-details">
+            <span>{{ transaction.accountNumber }}</span>
+            <span *ngIf="transaction.type === 'transfer'">→ {{ transaction.recipientAccount }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="transaction-center">
+        <div class="account-info">
+          <div class="account-detail">
+            <span class="detail-label">Type:</span>
+            <span class="transaction-type-badge" [ngClass]="transaction.type">
+              {{ getTransactionTypeLabel(transaction.type) }}
+            </span>
+          </div>
+          <div class="account-detail" *ngIf="transaction.description">
+            <span class="detail-label">Description:</span>
+            <span class="transaction-description">{{ transaction.description }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="transaction-right">
+        <div class="transaction-amount" [ngClass]="getAmountClass(transaction.type)">
+          <div class="amount">
+            {{ getAmountPrefix(transaction.type) }} {{ transaction.amount | number:'1.0-0' }} CFA
+          </div>
+          <div class="transaction-type-label">
+            {{ getTransactionTypeLabel(transaction.type) }}
+          </div>
+        </div>
+        <button class="print-btn" (click)="printInvoice(transaction); $event.stopPropagation()" title="Imprimer la facture">
+          <lucide-icon name="printer" class="print-icon"></lucide-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination">
+    <div class="pagination-info">
+      Affichage {{ getStartIndex() + 1 }} à {{ getEndIndex() }}
+      sur {{ filteredTransactions.length }} transactions
+    </div>
+
+    <div class="pagination-controls">
+      <button
+        class="pagination-btn"
+        (click)="previousPage()"
+        [disabled]="currentPage === 1"
+      >
+        Précédent
+      </button>
+
+      <span class="page-info">
+        Page {{ currentPage }} sur {{ getTotalPages() }}
+      </span>
+
+      <button
+        class="pagination-btn"
+        (click)="nextPage()"
+        [disabled]="currentPage === getTotalPages()"
+      >
+        Suivant
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Transaction Detail Modal -->
+<div *ngIf="showModal" class="modal-overlay" (click)="closeModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Détails de la Transaction</h2>
+      <button class="close-btn" (click)="closeModal()">
+        <lucide-icon name="x" class="close-icon"></lucide-icon>
+      </button>
+    </div>
+    <div class="modal-body" *ngIf="selectedTransaction">
+      <div class="detail-section">
+        <h3>Informations Transaction</h3>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">ID Transaction:</span>
+            <span class="transaction-id">{{ selectedTransaction.id }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Date:</span>
+            <span>{{ formatDate(selectedTransaction.transactionDate) }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Heure:</span>
+            <span>{{ selectedTransaction.transactionTime }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Type:</span>
+            <span class="transaction-type-badge" [ngClass]="selectedTransaction.type">
+              {{ getTransactionTypeLabel(selectedTransaction.type) }}
+            </span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Montant:</span>
+            <span class="amount-detail {{ getAmountClass(selectedTransaction.type) }}">
+              {{ getAmountPrefix(selectedTransaction.type) }} {{ selectedTransaction.amount | number:'1.0-0' }} CFA
+            </span>
+          </div>
+          <div class="detail-item" *ngIf="selectedTransaction.transactionFees">
+            <span class="detail-label">Frais:</span>
+            <span class="fees-amount">{{ selectedTransaction.transactionFees | number:'1.0-0' }} CFA</span>
+          </div>
+          <div class="detail-item" *ngIf="selectedTransaction.description">
+            <span class="detail-label">Description:</span>
+            <span>{{ selectedTransaction.description }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <h3>Informations Compte Source</h3>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">Numéro de compte:</span>
+            <span>{{ selectedTransaction.accountNumber }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Type de compte:</span>
+            <span>{{ selectedTransaction.accountType }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Propriétaire:</span>
+            <span>{{ selectedTransaction.accountOwner }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Solde après opération:</span>
+            <span>{{ selectedTransaction.accountBalance | number:'1.0-0' }} CFA</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-section" *ngIf="selectedTransaction.type === 'transfer' && selectedTransaction.recipientAccount">
+        <h3>Informations Compte Destinataire</h3>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">Numéro de compte:</span>
+            <span>{{ selectedTransaction.recipientAccount }}</span>
+          </div>
+          <div class="detail-item" *ngIf="selectedTransaction.recipientName">
+            <span class="detail-label">Bénéficiaire:</span>
+            <span>{{ selectedTransaction.recipientName }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="action-btn print-action-btn" (click)="printInvoice(selectedTransaction)">
+          <lucide-icon name="printer" class="action-icon"></lucide-icon>
+          Imprimer la facture
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- New Transaction Modal -->
+<div *ngIf="showNewTransactionModal" class="modal-overlay" (click)="closeNewTransactionModal()">
+  <div class="modal-content large-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Nouvelle Transaction</h2>
+      <button class="close-btn" (click)="closeNewTransactionModal()">
+        <lucide-icon name="x" class="close-icon"></lucide-icon>
+      </button>
+    </div>
+    <div class="modal-body">
+      <form (ngSubmit)="createTransaction()" #transactionForm="ngForm">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="accountNumber">Compte source *</label>
+            <select
+              id="accountNumber"
+              name="accountNumber"
+              [(ngModel)]="newTransaction.accountNumber"
+              required
+              class="form-select"
+              (change)="onAccountChange()"
+            >
+              <option value="">Sélectionnez un compte</option>
+              <option *ngFor="let account of clientAccounts" [value]="account.numeroCompte">
+                {{ account.numeroCompte }} ({{ account.typeCompte }}) - Solde: {{ account.solde | number:'1.0-0' }} {{ account.devise }}
+              </option>
+            </select>
+            <div *ngIf="selectedAccount" class="account-balance-info">
+              Solde disponible: <strong>{{ selectedAccount.solde | number:'1.0-0' }} {{ selectedAccount.devise }}</strong>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="transactionType">Type d'opération *</label>
+            <select
+              id="transactionType"
+              name="transactionType"
+              [(ngModel)]="newTransaction.type"
+              required
+              class="form-select"
+              (change)="onTransactionTypeChange()"
+            >
+              <option value="">Sélectionnez une opération</option>
+              <option value="deposit">Dépôt</option>
+              <option value="withdrawal">Retrait</option>
+              <option value="transfer">Virement</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row" *ngIf="newTransaction.type === 'transfer'">
+          <div class="form-group">
+            <label for="recipientAccount">Compte destinataire *</label>
+            <input
+              type="text"
+              id="recipientAccount"
+              name="recipientAccount"
+              [(ngModel)]="newTransaction.recipientAccount"
+              [required]="newTransaction.type === 'transfer'"
+              class="form-input"
+              placeholder="Numéro de compte du bénéficiaire"
+            >
+          </div>
+          <div class="form-group">
+            <label for="recipientName">Nom du bénéficiaire</label>
+            <input
+              type="text"
+              id="recipientName"
+              name="recipientName"
+              [(ngModel)]="newTransaction.recipientName"
+              class="form-input"
+              placeholder="Nom complet du bénéficiaire"
+            >
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="amount">Montant *</label>
+          <input
+            type="number"
+            id="amount"
+            name="amount"
+            [(ngModel)]="newTransaction.amount"
+            required
+            class="form-input"
+            placeholder="Montant de la transaction"
+            min="1"
+            [max]="getMaxAmount()"
+          >
+          <div class="amount-validation" *ngIf="newTransaction.amount">
+            <span *ngIf="newTransaction.type === 'withdrawal' && newTransaction.amount > getMaxAmount()" class="error-text">
+              Le montant dépasse le solde disponible
+            </span>
+            <span *ngIf="newTransaction.type === 'withdrawal' && selectedAccount && newTransaction.amount && newTransaction.amount <= getMaxAmount()" class="success-text">
+              Solde après retrait: {{ selectedAccount.solde - (newTransaction.amount || 0) | number:'1.0-0' }} {{ selectedAccount.devise }}
+            </span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="description">Description</label>
+          <textarea
+            id="description"
+            name="description"
+            [(ngModel)]="newTransaction.description"
+            class="form-textarea"
+            placeholder="Description de la transaction (optionnel)"
+            rows="3"
+          ></textarea>
+        </div>
+
+        <div class="transaction-summary" *ngIf="newTransaction.amount && newTransaction.type && selectedAccount">
+          <h3>Résumé de la transaction</h3>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <span class="summary-label">Type:</span>
+              <span class="summary-value">{{ getTransactionTypeLabel(newTransaction.type) }}</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">Montant:</span>
+              <span class="summary-value">{{ newTransaction.amount | number:'1.0-0' }} {{ selectedAccount.devise }}</span>
+            </div>
+            <div class="summary-item" *ngIf="newTransaction.type === 'transfer'">
+              <span class="summary-label">Frais:</span>
+              <span class="summary-value">{{ calculateFees() | number:'1.0-0' }} {{ selectedAccount.devise }}</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">Total:</span>
+              <span class="summary-value total-amount">
+                {{ calculateTotal() | number:'1.0-0' }} {{ selectedAccount.devise }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="cancel-btn" (click)="closeNewTransactionModal()">Annuler</button>
+          <button
+            type="submit"
+            class="submit-btn"
+            [disabled]="!transactionForm.valid || (newTransaction.type === 'withdrawal' && newTransaction.amount > getMaxAmount())"
+          >
+            Confirmer la transaction
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Facture Print Template (Hidden) -->
+<div id="invoice-template" style="display: none;">
+  <div class="invoice" id="invoice-content">
+    <div class="invoice-header">
+      <div class="invoice-logo">
+        <img src="/assets/images/logo.png" alt="CMR BANK Logo" class="bank-logo">
+        <div class="logo-text">
+          <span class="bank-name">CMR BANK</span>
+          <span class="bank-slogan">Votre partenaire financier de confiance</span>
+        </div>
+      </div>
+      <div class="invoice-title">
+        <h1>FACTURE DE TRANSACTION</h1>
+        <div class="invoice-number" id="invoice-number"></div>
+      </div>
+    </div>
+
+    <div class="invoice-info">
+      <div class="info-section">
+        <h3>Informations de la Banque</h3>
+        <p><strong>CMR BANK</strong></p>
+        <p>Siège Social: Avenue du Président, Yaoundé</p>
+        <p>Tél: +237 222 22 22 22 | Email: contact@cmrbank.cm</p>
+        <p>Agrément N°: AGR/2023/CMR/001</p>
+      </div>
+      <div class="info-section">
+        <h3>Informations du Client</h3>
+        <p id="client-name"></p>
+        <p id="client-phone"></p>
+        <p id="client-nationality"></p>
+        <p>Date d'émission: <span id="invoice-date"></span></p>
+      </div>
+    </div>
+
+    <div class="transaction-details">
+      <h2>Détails de la Transaction</h2>
+      <table class="details-table">
+        <tr>
+          <td><strong>Numéro de transaction:</strong></td>
+          <td id="transaction-id"></td>
+        </tr>
+        <tr>
+          <td><strong>Type d'opération:</strong></td>
+          <td id="transaction-type"></td>
+        </tr>
+        <tr>
+          <td><strong>Date et heure:</strong></td>
+          <td id="transaction-datetime"></td>
+        </tr>
+        <tr>
+          <td><strong>Compte source:</strong></td>
+          <td id="source-account"></td>
+        </tr>
+        <tr *ngIf="selectedTransaction?.type === 'transfer'">
+          <td><strong>Compte destinataire:</strong></td>
+          <td id="recipient-account"></td>
+        </tr>
+        <tr *ngIf="selectedTransaction?.recipientName">
+          <td><strong>Bénéficiaire:</strong></td>
+          <td id="recipient-name"></td>
+        </tr>
+        <tr>
+          <td><strong>Description:</strong></td>
+          <td id="transaction-description"></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="amount-section">
+      <h2>Montants</h2>
+      <table class="amount-table">
+        <tr>
+          <td>Montant de la transaction:</td>
+          <td id="transaction-amount"></td>
+        </tr>
+        <tr *ngIf="selectedTransaction?.transactionFees">
+          <td>Frais de transaction:</td>
+          <td id="transaction-fees"></td>
+        </tr>
+        <tr>
+          <td><strong>Montant total:</strong></td>
+          <td><strong id="total-amount"></strong></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="account-info">
+      <h2>Informations du Compte</h2>
+      <table class="account-table">
+        <tr>
+          <td>Type de compte:</td>
+          <td id="account-type"></td>
+        </tr>
+        <tr>
+          <td>Solde après opération:</td>
+          <td id="account-balance"></td>
+        </tr>
+        <tr>
+          <td>Statut du compte:</td>
+          <td id="account-status"></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="invoice-footer">
+      <div class="signature">
+        <p>Signature autorisée</p>
+        <div class="signature-line"></div>
+        <p>CMR BANK</p>
+      </div>
+      <div class="footer-notes">
+        <p><strong>Notes importantes:</strong></p>
+        <p>• Cette facture est un reçu officiel de transaction</p>
+        <p>• Conservez ce document pour vos archives</p>
+        <p>• Pour toute réclamation, contactez notre service client</p>
+        <p>• Référence: <span id="transaction-reference"></span></p>
+      </div>
+    </div>

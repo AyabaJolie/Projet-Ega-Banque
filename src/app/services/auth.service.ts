@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 
 export interface User {
+  id?: number;
   nom: string;
   email: string;
   password: string;
@@ -54,7 +55,7 @@ export class AuthService {
   logout(): void {
     this.currentUser = null;
     localStorage.removeItem('currentUser');
-    this.router.navigate(['/']);
+    this.router.navigate(['/login']);
   }
 
   getCurrentUser(): User | null {

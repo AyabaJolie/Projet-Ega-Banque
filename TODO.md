@@ -1,16 +1,11 @@
-# TODO: Modify Account Component for Admin Management
+# TODO: Améliorer le composant transactions
 
-- [x] Add getAdminUser() and changeAdminPassword(newPassword) methods to auth.service.ts
-- [x] Update account.component.ts to fetch and display admin info if user is admin
-- [x] Modify account.component.ts template to show admin connection info and password change form
-- [x] Update password change logic in account.component.ts to change admin's password
-- [x] Test the changes
-
-# TODO: Implement Client Functionality
-
-- [x] Modify dashboard.component.ts to show client-specific data (accounts, balance, recent transactions) when user is client
-- [x] Modify comptes.component.ts to show only client's accounts when user is client
-- [x] Modify transactions.component.ts to show only client's transactions when user is client
-- [x] Add invoice printing functionality to transactions component
-- [x] Display errors in red under the concerned part instead of alerts for both admin and client
-- [x] Test client login and dashboard functionality
+## Étapes à suivre
+- [ ] Ajouter des actions dans l'en-tête : boutons nouvelle transaction, export, rafraîchir
+- [ ] Ajouter des filtres supplémentaires : type de transaction, plage de dates (début/fin), plage de montants (min/max)
+- [ ] Ajouter l'affichage des filtres actifs avec suppression individuelle et réinitialisation complète
+- [ ] Ajouter des statistiques : nombre de transactions filtrées, montant total, nombre de transactions réussies
+- [ ] Mettre à jour applyFilters pour inclure les nouveaux filtres
+- [ ] Ajouter les méthodes nécessaires : hasActiveFilters, removeFilter, resetFilters, méthodes de stats
+- [ ] Tester les filtres et statistiques
+- [ ] Vérifier que les admins voient toutes les transactions (pas de filtrage client)

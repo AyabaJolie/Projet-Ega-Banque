@@ -14,14 +14,22 @@ import { AuthService } from '../services/auth.service';
           <div class="logo">
             <img src="assets/images/logo.png" alt="EGA BANQUE" class="logo-img">
           </div>
-          <nav class="main-nav">
-            <a routerLink="/app/dashboard" class="nav-item">Dashboard</a>
-            <a *ngIf="authService.isAdmin()" routerLink="/app/clients" class="nav-item">Clients</a>
-            <a *ngIf="authService.isAdmin() || authService.isClient()" routerLink="/app/comptes" class="nav-item">Mes Comptes</a>
-            <a *ngIf="authService.isAdmin() || authService.isClient()" routerLink="/app/transactions" class="nav-item">Mes Transactions</a>
-            <a *ngIf="authService.isClient()" routerLink="/app/transactions" class="nav-item">Historique</a>
-            <a routerLink="/app/account" class="nav-item">Mon Compte</a>
-            <a *ngIf="authService.isAdmin()" routerLink="/app/settings" class="nav-item">Paramètres</a>
+          <!-- Admin Navigation -->
+          <nav class="main-nav" *ngIf="isAdmin()">
+            <a routerLink="dashboard" class="nav-item">Dashboard</a>
+            <a routerLink="clients" class="nav-item">Clients</a>
+            <a routerLink="comptes" class="nav-item">Comptes</a>
+            <a routerLink="transactions" class="nav-item">Transactions</a>
+            <a routerLink="account" class="nav-item">Mon Compte</a>
+            <a routerLink="settings" class="nav-item">Paramètres</a>
+          </nav>
+
+          <!-- Client Navigation -->
+          <nav class="main-nav" *ngIf="isClient()">
+            <a routerLink="dashboard" class="nav-item">Accueil</a>
+            <a routerLink="client-comptes" class="nav-item">Mes Comptes</a>
+            <a routerLink="client-transactions" class="nav-item">Mes Transactions</a>
+            <a routerLink="account" class="nav-item">Mon Compte</a>
           </nav>
           <div class="user-actions">
             <button class="logout-btn" (click)="logout()">Déconnexion</button>
@@ -117,17 +125,17 @@ import { AuthService } from '../services/auth.service';
   `]
 })
 export class AppLayoutComponent {
-  constructor(public authService: AuthService) {}
+  constructor(private authService: AuthService) {}
+
+  isAdmin(): boolean {
+    return this.authService.isAdmin();
+  }
+
+  isClient(): boolean {
+    return this.authService.isClient();
+  }
 
   logout() {
     this.authService.logout();
-  }
-
-  makeDeposit() {
-    alert('Fonction de versement à implémenter');
-  }
-
-  makeWithdrawal() {
-    alert('Fonction de retrait à implémenter');
   }
 }

@@ -54,7 +54,7 @@ import { AuthService } from '../services/auth.service';
             </div>
             
             <button class="primary-button" (click)="onLogin()">
-              Se connecter
+              Connexion
             </button>
 
             <div *ngIf="errorMessage" class="error-message">

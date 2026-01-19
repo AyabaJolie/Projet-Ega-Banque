@@ -118,7 +118,7 @@ interface Compte {
     <!-- Recent Transactions -->
     <div class="transactions-title">
       Transactions récentes
-      <div class="voir-plus" routerLink="/app/transactions">Voir plus</div>
+      <div class="voir-plus" routerLink="transactions">Voir plus</div>
     </div>
 
     <div class="transactions-container" *ngIf="isAdmin">
@@ -209,9 +209,10 @@ interface Compte {
       <div class="table-header">
         <div class="header-left">
           <div style="width: 35px;"></div>
-          <div class="header-client">Transaction</div>
+          <div class="header-client">Numéro de Transaction</div>
         </div>
         <div class="header-right">
+          <div>Type</div>
           <div>Montant</div>
         </div>
       </div>
@@ -221,16 +222,15 @@ interface Compte {
         <div class="transaction-left">
           <div class="transaction-profile">{{ getClientInitials() }}</div>
           <div class="client-info">
-            <div class="client-name">{{ transaction.type === 'deposit' ? 'DÉPÔT' : 'RETRAIT' }}</div>
+            <div class="client-name">{{ transaction.id }}</div>
             <div class="transaction-name">{{ transaction.transactionDate }} {{ transaction.transactionTime }}</div>
-            <div class="transaction-name">ID: {{ transaction.id }}</div>
           </div>
         </div>
         <div class="transaction-right">
+          <div class="transaction-type">{{ transaction.type === 'deposit' ? 'DÉPÔT' : 'RETRAIT' }}</div>
           <div class="transaction-amount" [ngClass]="transaction.type === 'deposit' ? 'positive' : 'negative'">
             <div class="amount">{{ transaction.type === 'deposit' ? '+' : '-' }} {{ transaction.amount | number:'1.0-0' }} CFA</div>
           </div>
-          <button class="print-btn" (click)="printInvoice(transaction)">Imprimer Facture</button>
         </div>
       </div>
     </div>
@@ -612,21 +612,7 @@ interface Compte {
       color: #C40303;
     }
 
-    .print-btn {
-      background: #3B82F6;
-      color: #FFFFFF;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      cursor: pointer;
-      margin-top: 8px;
-      transition: background 0.3s ease;
-    }
 
-    .print-btn:hover {
-      background: #2563EB;
-    }
 
     /* Dashboard Layout */
     .dashboard {
@@ -781,37 +767,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return this.currentUser?.nom?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 'CL';
   }
 
-  printInvoice(transaction: Transaction) {
-    const invoiceContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ccc;">
-        <h1 style="text-align: center; color: #333;">Facture de Transaction</h1>
-        <div style="margin: 20px 0;">
-          <h3>Informations Client</h3>
-          <p><strong>Nom:</strong> ${transaction.clientName} ${transaction.firstName}</p>
-          <p><strong>Email:</strong> ${transaction.email}</p>
-          <p><strong>Téléphone:</strong> ${transaction.phone}</p>
-        </div>
-        <div style="margin: 20px 0;">
-          <h3>Détails de la Transaction</h3>
-          <p><strong>ID Transaction:</strong> ${transaction.id}</p>
-          <p><strong>Date:</strong> ${transaction.transactionDate} ${transaction.transactionTime}</p>
-          <p><strong>Numéro de compte:</strong> ${transaction.accountNumber}</p>
-          <p><strong>Type:</strong> ${transaction.type === 'deposit' ? 'Dépôt' : 'Retrait'}</p>
-          <p><strong>Montant:</strong> ${transaction.amount.toLocaleString()} CFA</p>
-        </div>
-        <div style="text-align: center; margin-top: 40px; color: #666;">
-          <p>Merci d'avoir utilisé nos services bancaires.</p>
-        </div>
-      </div>
-    `;
 
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(invoiceContent);
-      printWindow.document.close();
-      printWindow.print();
-    }
-  }
 
   logout() {
     this.authService.logout();
