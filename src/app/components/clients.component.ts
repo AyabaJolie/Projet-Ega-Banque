@@ -37,9 +37,7 @@ export interface Client {
             Nouveau client
           </button>
          
-          <button class="refresh-btn" (click)="refreshClients()">
-            <lucide-icon name="refresh-cw" class="refresh-icon"></lucide-icon>
-          </button>
+         
         </div>
       </div>
 
@@ -1375,10 +1373,5 @@ export class ClientsComponent implements OnInit {
 
 
 
-  refreshClients() {
-    console.log('Rafraîchir les clients');
-    this.loadMockData();
-    this.applyFilters();
-    this.extractNationalites();
-  }
+
 }
